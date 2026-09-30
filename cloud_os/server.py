@@ -1,8 +1,8 @@
 from fastapi import FastAPI
 from fastapi.responses import HTMLResponse
 import psutil, platform, time
-from . import __version__
-app=FastAPI(title="Cloud Os",version=__version__); BOOT=time.time()
+from . import __version__\nfrom .api import router
+app=FastAPI(title="Cloud Os",version=__version__); app.include_router(router); BOOT=time.time()
 @app.get("/health")
 def health(): return {"status":"ok","version":__version__}
 @app.get("/api/system")
