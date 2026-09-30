@@ -7,7 +7,7 @@ name = "cloud-os"
 version = "0.2.0"
 description = "Lightweight self-hosted personal cloud server"
 requires-python = ">=3.10"
-dependencies = ["fastapi>=0.115","uvicorn>=0.30","psutil>=6.0","typer>=0.12"]
+dependencies = ["fastapi>=0.115","uvicorn>=0.30","psutil>=6.0","typer>=0.12","python-multipart>=0.0.9"]
 
 [project.scripts]
 cloud-os = "cloud_os.cli:app"
