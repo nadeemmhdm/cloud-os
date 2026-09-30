@@ -1,0 +1,31 @@
+from __future__ import annotations
+import json, os
+from pathlib import Path
+
+APP_DIR = Path(os.getenv("CLOUD_OS_HOME", Path.home()/".cloud-os"))
+CONFIG_FILE = APP_DIR/"config.json"
+
+DEFAULTS = {
+    "host": "127.0.0.1",
+    "port": 8765,
+    "ssh_enabled": True,
+    "cloudflare_enabled": False,
+    "cloudflare_tunnel": "",
+}
+
+def load():
+    APP_DIR.mkdir(parents=True, exist_ok=True)
+    if not CONFIG_FILE.exists():
+        save(DEFAULTS.copy())
+    data = DEFAULTS.copy()
+    try:
+        data.update(json.loads(CONFIG_FILE.read_text(encoding="utf-8")))
+    except (OSError, json.JSONDecodeError):
+        pass
+    return data
+
+def save(data):
+    APP_DIR.mkdir(parents=True, exist_ok=True)
+    tmp = CONFIG_FILE.with_suffix(".tmp")
+    tmp.write_text(json.dumps(data, indent=2), encoding="utf-8")
+    tmp.replace(CONFIG_FILE)
