@@ -2,7 +2,7 @@ from __future__ import annotations
 import json, typer, uvicorn
 from .config import load, save
 from .runtime import prepare_integrations
-from .doctor import report
+from .doctor import report\nfrom .auth import ensure_admin
 app=typer.Typer(no_args_is_help=True)
 @app.command()
 def setup(port:int=8765,ssh:bool=True):
