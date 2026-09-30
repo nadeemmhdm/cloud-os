@@ -2,7 +2,7 @@ from __future__ import annotations
 import json, os
 from pathlib import Path
 APP_DIR=Path(os.getenv("CLOUD_OS_HOME",Path.home()/".cloud-os")); CONFIG_FILE=APP_DIR/"config.json"
-DEFAULTS={"host":"127.0.0.1","port":8765,"ssh_enabled":True,"cloudflare_enabled":False,"cloudflare_tunnel":"","storage_root":str(Path.home()/"CloudOsStorage")}
+DEFAULTS={"host":"127.0.0.1","port":8765,"ssh_enabled":True,"cloudflare_enabled":False,"cloudflare_tunnel":"","storage_root":str(Path.home()/"CloudOsStorage"),"admin_password_hash":""}
 def load():
  APP_DIR.mkdir(parents=True,exist_ok=True)
  if not CONFIG_FILE.exists(): save(DEFAULTS.copy())
