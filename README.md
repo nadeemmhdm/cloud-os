@@ -28,7 +28,7 @@ Computer ON → OS boots → Cloud Os starts → saved config loads
 ```bash
 cloud-os setup
 cloud-os start
-cloud-os status
+cloud-os status\ncloud-os doctor
 ```
 
 ## Current modules
@@ -40,7 +40,7 @@ cloud-os status
 - Cloudflare Tunnel startup hook
 - Windows/Linux installers
 - Linux systemd restart policy
-- Cross-platform CLI
+- Cross-platform CLI\n- Admin authentication with PBKDF2 password hashing and expiring sessions\n- Restricted-root file management API with upload/download/folder/delete\n- Admin-only server terminal with timeout and output limits\n- Audit logging\n- On-demand storage backups\n- Diagnostics and SSH/Cloudflare integration status
 
 ## Security
 Do not directly expose the development HTTP server to the Internet. Prefer an authenticated Cloudflare Tunnel, VPN, or hardened HTTPS reverse proxy. Never commit tokens, passwords, tunnel credentials, or SSH private keys. See [SECURITY.md](SECURITY.md).
