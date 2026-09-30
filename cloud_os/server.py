@@ -1,12 +1,15 @@
 from fastapi import FastAPI
+from fastapi.responses import HTMLResponse
+import psutil, platform, time
 from . import __version__
-
-app = FastAPI(title="Cloud Os", version=__version__)
-
+app=FastAPI(title="Cloud Os",version=__version__); BOOT=time.time()
 @app.get("/health")
-def health():
-    return {"status":"ok","version":__version__}
-
-@app.get("/")
-def root():
-    return {"name":"Cloud Os","status":"online","version":__version__}
+def health(): return {"status":"ok","version":__version__}
+@app.get("/api/system")
+def system():
+ d=psutil.disk_usage("/")
+ return {"cpu":psutil.cpu_percent(),"ram":psutil.virtual_memory().percent,"disk":d.percent,"uptime":int(time.time()-BOOT),"platform":platform.system(),"version":__version__}
+@app.get("/",response_class=HTMLResponse)
+def dashboard():
+ return """<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><title>Cloud Os</title><style>
+*{box-sizing:border-box}body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:#0b0d12;color:#f7f7fa;min-height:100vh}.bg{position:fixed;inset:-30%;background:radial-gradient(circle at 30% 30%,#24304a 0,transparent 32%),radial-gradient(circle at 70% 60%,#27213f 0,transparent 28%);filter:blur(30px);animation:float 12s ease-in-out infinite alternate;z-index:-1}.shell{display:grid;grid-template-columns:230px 1fr;min-height:100vh}.side{margin:18px;padding:22px;border:1px solid #ffffff14;background:#ffffff09;backdrop-filter:blur(24px);border-radius:24px}.brand{font-size:21px;font-weight:700;margin-bottom:32px}.dot{display:inline-block;width:10px;height:10px;border-radius:50%;background:#6ee7a8;box-shadow:0 0 18px #6ee7a8;margin-right:9px}.nav{padding:12px 14px;margin:6px 0;border-radius:14px;color:#c9cbd2}.nav.active,.nav:hover{background:#ffffff12;color:white}.main{padding:34px 34px 34px 8px}.top{display:flex;justify-content:space-between;align-items:center}.muted{color:#969aa6}.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-top:28px}.card{padding:22px;border-radius:22px;border:1px solid #ffffff13;background:#ffffff0b;backdrop-filter:blur(20px);transition:.25s;animation:rise .55s ease both}.card:hover{transform:translateY(-4px);background:#ffffff10}.value{font-size:34px;font-weight:700;margin:8px 0}.bar{height:7px;background:#ffffff12;border-radius:20px;overflow:hidden}.fill{height:100%;width:0;background:linear-gradient(90deg,#8aa7ff,#bca7ff);border-radius:20px;transition:width .8s ease}.wide{grid-column:1/-1}.status{display:flex;align-items:center;gap:8px}@keyframes rise{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}@keyframes float{to{transform:translate(5%,4%) scale(1.06)}}@media(max-width:760px){.shell{display:block}.side{margin:12px}.side .nav{display:inline-block}.main{padding:18px}.grid{grid-template-columns:1fr}.wide{grid-column:auto}}</style></head><body><div class="bg"></div><div class="shell"><aside class="side"><div class="brand"><span class="dot"></span>Cloud Os</div><div class="nav active">Overview</div><div class="nav">Files</div><div class="nav">Network</div><div class="nav">Settings</div></aside><main class="main"><div class="top"><div><div class="muted">Personal cloud server</div><h1>System overview</h1></div><div class="status"><span class="dot"></span>Online</div></div><section class="grid"><div class="card"><span class="muted">CPU</span><div id="cpu" class="value">--%</div><div class="bar"><div id="cpub" class="fill"></div></div></div><div class="card"><span class="muted">Memory</span><div id="ram" class="value">--%</div><div class="bar"><div id="ramb" class="fill"></div></div></div><div class="card"><span class="muted">Storage</span><div id="disk" class="value">--%</div><div class="bar"><div id="diskb" class="fill"></div></div></div><div class="card wide"><span class="muted">Server</span><h2>Cloud Os is running</h2><p id="info" class="muted">Loading...</p></div></section></main></div><script>async function refresh(){try{let r=await fetch('/api/system'),d=await r.json();for(let k of ['cpu','ram','disk']){document.getElementById(k).textContent=Math.round(d[k])+'%';document.getElementById(k+'b').style.width=d[k]+'%'}document.getElementById('info').textContent=d.platform+' · uptime '+Math.floor(d.uptime/60)+' min · v'+d.version}catch(e){}}refresh();setInterval(refresh,3000)</script></body></html>"""
