@@ -13,12 +13,22 @@ def verify(password,stored):
 def ensure_admin(password):
  cfg=load()
  if not cfg.get("admin_password_hash"): cfg["admin_password_hash"]=hash_password(password); save(cfg)
-def login(password):
+def login(password,username="admin"):
  cfg=load()
- if not verify(password,cfg.get("admin_password_hash","")): return None
- token=secrets.token_urlsafe(32); SESSIONS[token]=time.time()+43200; return token
-def valid(token):
- exp=SESSIONS.get(token,0)
- if exp<time.time(): SESSIONS.pop(token,None); return False
- return True
+ if username=="admin":
+  if not verify(password,cfg.get("admin_password_hash","")): return None
+  identity={"username":"admin","role":"owner","permissions":["*"]}
+ else:
+  from .teams import authenticate,permissions
+  u=authenticate(username,password)
+  if not u:return None
+  identity={"username":username,"role":u.get("role","member"),"permissions":permissions(username)}
+ token=secrets.token_urlsafe(32); SESSIONS[token]={"expires":time.time()+43200,"identity":identity}; return token
+def identity(token):
+ s=SESSIONS.get(token)
+ if not s or s["expires"]<time.time(): SESSIONS.pop(token,None); return None
+ return s["identity"]
+def valid(token): return identity(token) is not None
+def allowed(token,permission):
+ i=identity(token); return bool(i and ("*" in i["permissions"] or permission in i["permissions"]))
 def logout(token): SESSIONS.pop(token,None)
