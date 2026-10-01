@@ -10,9 +10,9 @@ from .teams import authenticate, permissions
 def _identity(username,password):
     cfg=load()
     if username=="admin":
-        return {"username":"admin","permissions":["*"]} if cfg.get("admin_password_hash") and verify(password,cfg["admin_password_hash"]) else None
+        return {"username":"admin","role":"owner","permissions":["*"]} if cfg.get("admin_password_hash") and verify(password,cfg["admin_password_hash"]) else None
     u=authenticate(username,password)
-    return {"username":username,"permissions":permissions(username)} if u else None
+    return {"username":username,"role":u.get("role","member"),"permissions":permissions(username)} if u else None
 
 def _can_terminal(identity):
     p=identity.get("permissions",[])
