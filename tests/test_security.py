@@ -154,3 +154,17 @@ def test_cross_origin_mutation_is_blocked():
     with pytest.raises(Exception) as exc:
         api._same_origin(req)
     assert getattr(exc.value,"status_code",None)==403
+
+
+def test_dashboard_has_functional_management_controls():
+    from pathlib import Path
+    import cloud_os
+    html=Path(cloud_os.__file__).with_name("dashboard.html").read_text(encoding="utf-8")
+    for marker in ("Upload file","New folder","Create backup","Add user","Create team","Host terminal"):
+        assert marker in html
+
+def test_server_csp_allows_embedded_logo():
+    import inspect
+    import cloud_os.server as server
+    source=inspect.getsource(server.security_headers)
+    assert "img-src 'self' data:" in source
