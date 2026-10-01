@@ -39,7 +39,7 @@ def _name(value,label):
 def create_user(username,password,display_name="",role="member"):
  _name(username,"username")
  if username=="admin": raise ValueError("Reserved username")
- if role not in DEFAULT_ROLES: raise ValueError("Invalid role")
+ if role not in DEFAULT_ROLES or role=="owner": raise ValueError("Invalid role")
  d=_load()
  if username in d["users"]: raise ValueError("User already exists")
  d["users"][username]={"id":secrets.token_hex(8),"display_name":(display_name or username)[:128],"password_hash":hash_password(password),"role":role,"disabled":False}
@@ -60,7 +60,7 @@ def create_team(name):
 def teams(): return [{"name":n,**t} for n,t in _load()["teams"].items()]
 
 def add_member(team,username,role="member"):
- if role not in DEFAULT_ROLES: raise ValueError("Invalid role")
+ if role not in DEFAULT_ROLES or role=="owner": raise ValueError("Invalid role")
  d=_load()
  if team not in d["teams"] or username not in d["users"]: raise ValueError("Unknown team or user")
  d["teams"][team]["members"][username]=role; _save(d)
