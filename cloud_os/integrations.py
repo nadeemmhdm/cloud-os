@@ -9,6 +9,6 @@ def _port_open(host,port):
 def status():
     cfg=load(); sh=str(cfg.get("ssh_host","0.0.0.0")); sp=int(cfg.get("ssh_port",2222))
     return {
-      "ssh":{"enabled":bool(cfg.get("ssh_enabled")),"type":"Cloud OS isolated SSH/SFTP gateway","host":sh,"port":sp,"running":_port_open("127.0.0.1" if sh in ("0.0.0.0","::") else sh,sp),"host_shell_exposed":False},
+      "ssh":{"enabled":bool(cfg.get("ssh_enabled")),"type":"Cloud OS native server SSH gateway","host":sh,"port":sp,"running":_port_open("127.0.0.1" if sh in ("0.0.0.0","::") else sh,sp),"native_server_shell":True},
       "cloudflare":{"enabled":bool(cfg.get("cloudflare_enabled")),"configured":bool(cfg.get("cloudflare_tunnel"))}
     }
