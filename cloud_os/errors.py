@@ -23,7 +23,10 @@ ERRORS={
  "USER-001":ErrorInfo("USER-001","User operation failed.","Check username, password strength and requested role."),
  "TEAM-001":ErrorInfo("TEAM-001","Team operation failed.","Check the team, user and requested role."),
  "DB-001":ErrorInfo("DB-001","Access database is unreadable or corrupt.","Restore access.json from a trusted backup or repair it locally before restarting Cloud OS."),
- "BACKUP-001":ErrorInfo("BACKUP-001","Backup operation failed.","Check storage space and Cloud OS data-directory permissions."),\n "AI-001":ErrorInfo("AI-001","AI is not configured or the configuration is invalid.","Ask an Owner/Admin to configure an AI provider in Settings."),\n "AI-002":ErrorInfo("AI-002","AI prompt is invalid.","Enter a non-empty prompt within the supported length."),\n "AI-003":ErrorInfo("AI-003","AI provider request failed.","Check the configured provider, model, network connection and API account."),
+ "BACKUP-001":ErrorInfo("BACKUP-001","Backup operation failed.","Check storage space and Cloud OS data-directory permissions."),
+ "AI-001":ErrorInfo("AI-001","AI is not configured or the configuration is invalid.","Ask an Owner/Admin to configure an AI provider in Settings."),
+ "AI-002":ErrorInfo("AI-002","AI prompt is invalid.","Enter a non-empty prompt within the supported length."),
+ "AI-003":ErrorInfo("AI-003","AI provider request failed.","Check the configured provider, model, network connection and API account."),
  "SYS-001":ErrorInfo("SYS-001","Internal Cloud OS error.","Check the audit/server log and run cloud-os doctor.")
 }
 
