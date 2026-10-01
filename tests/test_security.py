@@ -215,3 +215,19 @@ def test_booster_status_is_not_hardcoded():
     import inspect
     import cloud_os.booster as booster
     assert '"mode":"normal"' not in inspect.getsource(booster.status)
+
+
+def test_dashboard_popup_free_and_packaged_logo():
+    from pathlib import Path
+    import cloud_os
+    html=Path(cloud_os.__file__).with_name("dashboard.html").read_text(encoding="utf-8")
+    assert "prompt(" not in html
+    assert "alert(" not in html
+    assert "confirm(" not in html
+    assert 'src="/cloud-os-logo.svg"' in html
+    assert "</div>\\n<script>" not in html
+
+def test_dashboard_logo_route_exists():
+    import inspect
+    import cloud_os.server as server
+    assert "cloud-os-logo.svg" in inspect.getsource(server.cloud_os_logo)
