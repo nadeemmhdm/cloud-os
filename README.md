@@ -32,7 +32,10 @@ cloud-os doctor
 ## Implemented foundation
 
 - FastAPI server and health/system endpoints
-- Responsive animated dashboard foundation
+- Responsive animated macOS-inspired dashboard with boot/loading flow
+- Safe Cloud OS process performance booster with truthful applied/not-applied status
+- Multi-provider AI Help: Gemini, OpenAI, Claude and Ollama Cloud
+- Local Markdown documentation context for AI-assisted error and issue troubleshooting
 - CPU, RAM, storage and uptime monitoring
 - Persistent configuration and isolated storage root
 - File listing, upload, download, folder creation and deletion APIs
@@ -72,7 +75,7 @@ See [Teams and Access Control](docs/TEAMS.md).
 
 ## Security
 
-Terminal access inherits the operating-system privileges of the Cloud Os process. Grant it only to trusted operators. Prefer SSH keys and authenticated HTTPS/tunnel access, use strong unique passwords, and never commit credentials or private keys.
+AI provider keys are server-side secrets and must never be committed to the repository or exposed in browser source. Environment variables are preferred for managed deployments. Terminal access inherits the operating-system privileges of the Cloud Os process. Grant it only to trusted operators. Prefer SSH keys and authenticated HTTPS/tunnel access, use strong unique passwords, and never commit credentials or private keys.
 
 See [SECURITY.md](SECURITY.md).
 
