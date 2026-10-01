@@ -3,11 +3,20 @@ Description=Cloud Os personal cloud server
 After=network-online.target
 Wants=network-online.target
 
+# SECURITY: This template is intentionally not auto-installed.
+# A production service must run as a dedicated unprivileged Cloud OS user,
+# with explicit CLOUD_OS_HOME/CLOUD_OS_SOURCE paths and restricted filesystem access.
+# Do not run the web terminal as root.
+
 [Service]
 Type=simple
 ExecStart=/usr/local/bin/cloud-os start
-Restart=always
+Restart=on-failure
 RestartSec=5
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
 
 [Install]
 WantedBy=multi-user.target
