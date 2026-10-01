@@ -23,7 +23,7 @@ irm https://raw.githubusercontent.com/nadeemmhdm/cloud-os/main/install.ps1 | iex
 
 The installer checks prerequisites, uses `winget` to install missing Git/Python, installs Cloud OS, runs setup and diagnostics, and prints a readable error code plus a suggested fix when a step fails.
 
-> Windows automatic service registration is not yet implemented. The installer will warn instead of treating this as a failed Cloud OS installation. Start with `cloud-os start`.
+The Windows installer registers a current-user Task Scheduler entry and starts it after setup. This is **logon-triggered**, not a pre-login Windows service. For unattended/headless production use, keep this limitation in mind.
 
 ## Linux
 
@@ -31,7 +31,7 @@ The installer checks prerequisites, uses `winget` to install missing Git/Python,
 curl -fsSL https://raw.githubusercontent.com/nadeemmhdm/cloud-os/main/install.sh | bash
 ```
 
-Debian/Ubuntu (`apt`) and Fedora-family (`dnf`) prerequisite installation is supported. Cloud OS is installed into an isolated virtual environment under `/opt/cloud-os/.venv`.
+Debian/Ubuntu (`apt`) and Fedora-family (`dnf`) prerequisite installation is supported. Cloud OS is installed into an isolated virtual environment under `/opt/cloud-os/.venv`. The development installer does not enable a root system service because that would also elevate the web terminal.
 
 ## Everyday commands
 
