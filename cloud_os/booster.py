@@ -1,26 +1,30 @@
 from __future__ import annotations
-import gc,os,platform
+import gc,os
 import psutil
 
-def status():
- p=psutil.Process()
- f=psutil.cpu_freq()
- return {"pid":p.pid,"priority":str(p.nice()),"cpu_count":psutil.cpu_count(),"cpu_percent":psutil.cpu_percent(interval=.15),"frequency_mhz":round(f.current,1) if f else None,"mode":"normal"}
-def boost():
- gc.collect()
- p=psutil.Process(); applied=False; note=""
+def _mode(p):
  try:
-  if os.name=="nt":
-   p.nice(psutil.ABOVE_NORMAL_PRIORITY_CLASS); applied=True
-  else:
-   current=p.nice()
-   target=max(-5,current-2)
-   p.nice(target); applied=True
- except (psutil.Error,PermissionError,OSError) as e: note=str(e)
- d=status(); d["mode"]="boosted" if applied else "normal"; d["applied"]=applied; d["note"]=note
+  n=p.nice()
+  if os.name=="nt": return "boosted" if n==psutil.ABOVE_NORMAL_PRIORITY_CLASS else "normal"
+  return "boosted" if int(n)<0 else "normal"
+ except (psutil.Error,ValueError,TypeError): return "unknown"
+
+def status():
+ p=psutil.Process(); f=psutil.cpu_freq()
+ return {"pid":p.pid,"priority":str(p.nice()),"cpu_count":psutil.cpu_count(),"cpu_percent":psutil.cpu_percent(interval=.15),"frequency_mhz":round(f.current,1) if f else None,"mode":_mode(p)}
+
+def boost():
+ gc.collect(); p=psutil.Process(); note=""
+ try:
+  if os.name=="nt": p.nice(psutil.ABOVE_NORMAL_PRIORITY_CLASS)
+  else: p.nice(max(-5,int(p.nice())-2))
+ except (psutil.Error,PermissionError,OSError,ValueError) as e: note=str(e)
+ d=status(); d["applied"]=d["mode"]=="boosted"; d["note"]=note
  return d
+
 def normal():
- p=psutil.Process()
+ p=psutil.Process(); note=""
  try:p.nice(psutil.NORMAL_PRIORITY_CLASS if os.name=="nt" else 0)
- except (psutil.Error,PermissionError,OSError) as e:return {**status(),"applied":False,"note":str(e)}
- return {**status(),"mode":"normal","applied":True,"note":""}
+ except (psutil.Error,PermissionError,OSError,ValueError) as e: note=str(e)
+ d=status(); d["applied"]=d["mode"]=="normal"; d["note"]=note
+ return d
