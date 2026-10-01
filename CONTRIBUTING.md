@@ -1,4 +1,4 @@
-# Contributing to Cloud Os
+# Contributing to Cloud OS
 
 Thank you for contributing.
 
