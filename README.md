@@ -8,10 +8,10 @@ Cloud OS turns an existing computer into a privately managed server without repl
 
 ## Website & Demo
 
-- **Website:** https://nadeemmhdm.github.io/cloud-os/site/
-- **Documentation:** https://nadeemmhdm.github.io/cloud-os/site/docs.html
-- **Searchable Error Codes:** https://nadeemmhdm.github.io/cloud-os/site/errors.html
-- **Product Demo:** https://nadeemmhdm.github.io/cloud-os/site/#demo
+- **Website:** https://cloud-os.qezvo.in/
+- **Documentation:** https://cloud-os.qezvo.in/docs.html
+- **Searchable Error Codes:** https://cloud-os.qezvo.in/errors.html
+- **Product Demo:** https://cloud-os.qezvo.in/#demo
 
 The product demo source is stored at `site/assets/cloud-os-demo.mov`.
 
