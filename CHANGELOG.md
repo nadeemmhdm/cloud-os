@@ -3,6 +3,21 @@
 All notable Cloud OS changes are documented here. Detailed release-note drafts are stored under `releases/`.
 
 ## Unreleased
+
+## 0.2.2
+### Added
+- Cloud OS SSH gateway now provides role-gated native server shell access using PowerShell on Windows and Bash on Linux.
+- Dashboard terminal sessions preserve the working directory between commands.
+- Cloud OS AI widget supports general chat, coding and troubleshooting with automatic configured-provider selection.
+
+### Changed
+- AI provider selection was removed from the chat widget; provider configuration remains under Settings for authorized administrators.
+- SSH and terminal access continue to follow Cloud OS RBAC permissions.
+
+### Fixed
+- Terminal session and SSH gateway regressions found by the Windows/Linux CI matrix.
+- AI error catalog and automatic provider-selection failures.
+
 ### Added
 - Standalone Cloud OS website with landing, documentation and searchable error-code pages.
 - Product demo video and unified Cloud OS visual branding across the website and dashboard.
