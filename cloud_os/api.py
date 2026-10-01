@@ -26,6 +26,9 @@ class TeamCreate(BaseModel): name:str
 class MemberChange(BaseModel): username:str; role:str="member"
 class Command(BaseModel): command:str; shell:str|None=None; privileged:bool=False
 class PathBody(BaseModel): path:str
+class FileCreate(BaseModel): path:str; content:str=""
+class RenameBody(BaseModel): path:str; new_name:str
+class FileSave(BaseModel): path:str; content:str
 class AIConfig(BaseModel): provider:str; api_key:str; model:str=""
 class AIAsk(BaseModel): provider:str; prompt:str
 class BoostBody(BaseModel): enabled:bool=True
@@ -86,6 +89,59 @@ def folder(body:PathBody,req:Request):
  except FileExistsError as e: fail(409,"FILE-005",str(e))
  except ValueError as e: fail(400,"FILE-002",str(e))
  record("folder.create",body.path); return {"ok":True}
+
+
+@router.post("/file")
+def create_file(body:FileCreate,req:Request):
+ require(req,"files.write")
+ try:
+  p=safe_path(body.path)
+  if p.exists(): fail(409,"FILE-005","File already exists")
+  p.parent.mkdir(parents=True,exist_ok=True)
+  p.write_text(body.content,encoding="utf-8")
+ except ValueError as e: fail(400,"FILE-002",str(e))
+ except OSError as e: fail(500,"FILE-005",str(e))
+ record("file.create",body.path); return {"ok":True}
+
+@router.get("/file/content")
+def file_content(path:str,req:Request):
+ require(req,"files.read")
+ try:p=safe_path(path)
+ except ValueError as e: fail(400,"FILE-002",str(e))
+ if not p.is_file(): fail(404,"FILE-001")
+ try:
+  if p.stat().st_size>2*1024*1024: fail(413,"FILE-003","Text editor limit is 2 MiB")
+  return {"path":path,"content":p.read_text(encoding="utf-8")}
+ except UnicodeDecodeError: fail(400,"FILE-005","This file is not UTF-8 text")
+ except OSError as e: fail(500,"FILE-005",str(e))
+
+@router.put("/file/content")
+def save_file(body:FileSave,req:Request):
+ require(req,"files.write")
+ if len(body.content.encode("utf-8"))>2*1024*1024: fail(413,"FILE-003","Text editor limit is 2 MiB")
+ try:
+  p=safe_path(body.path)
+  if not p.is_file(): fail(404,"FILE-001")
+  p.write_text(body.content,encoding="utf-8")
+ except ValueError as e: fail(400,"FILE-002",str(e))
+ except OSError as e: fail(500,"FILE-005",str(e))
+ record("file.edit",body.path); return {"ok":True}
+
+@router.post("/files/rename")
+def rename_file(body:RenameBody,req:Request):
+ require(req,"files.write")
+ if not body.new_name or body.new_name in (".","..") or "/" in body.new_name or "\\" in body.new_name or "\x00" in body.new_name:
+  fail(400,"FILE-002","Invalid name")
+ try:
+  src=safe_path(body.path); root=safe_path("")
+  if src==root: fail(400,"FILE-004")
+  if not src.exists(): fail(404,"FILE-001")
+  dst=safe_path(str(src.relative_to(root).parent/body.new_name))
+  if dst.exists(): fail(409,"FILE-005","Destination already exists")
+  src.rename(dst)
+ except ValueError as e: fail(400,"FILE-002",str(e))
+ except OSError as e: fail(500,"FILE-005",str(e))
+ record("file.rename",body.path+" -> "+body.new_name); return {"ok":True}
 
 @router.delete("/files")
 def remove(path:str,req:Request):
