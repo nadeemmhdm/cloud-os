@@ -42,7 +42,10 @@ def execute(command,timeout=60,shell=None,privileged=False,session_id=None):
  if not isinstance(command,str) or not command.strip() or len(command)>MAX_COMMAND: raise ValueError("Invalid command")
  st=_state(session_id)
  shell=(st or {}).get("shell") or shell or ("powershell" if os.name=="nt" else "bash")
- if privileged and os.name=="nt": raise PermissionError("Administrative PowerShell requires Cloud OS itself to be running elevated; UAC is never bypassed")\n exe=_exe(shell)\n cwd=(st or {}).get("cwd") if st else str(storage_root())\n env=(st or {}).get("env") if st else os.environ.copy()
+ if privileged and os.name=="nt": raise PermissionError("Administrative PowerShell requires Cloud OS itself to be running elevated; UAC is never bypassed")
+ exe=_exe(shell)
+ cwd=(st or {}).get("cwd") if st else str(storage_root())
+ env=(st or {}).get("env") if st else os.environ.copy()
  if privileged:
   if os.name=="nt": raise PermissionError("Administrative PowerShell requires Cloud OS itself to be running elevated; UAC is never bypassed")
   sudo=shutil.which("sudo")
@@ -53,7 +56,8 @@ def execute(command,timeout=60,shell=None,privileged=False,session_id=None):
    wrapped=f'& {{ {command} }}; $c=(Get-Location).Path; Write-Output "__CLOUDOS_CWD__$c"'
    argv=[exe,"-NoLogo","-NoProfile","-NonInteractive","-Command",wrapped]
   else:
-   wrapped=command+'; rc=$?; printf "\\n__CLOUDOS_CWD__%s" "$PWD"; exit $rc'
+   wrapped=command+'; rc=$?; printf "\
+__CLOUDOS_CWD__%s" "$PWD"; exit $rc'
    argv=[exe,"--noprofile","--norc","-c",wrapped]
  proc=subprocess.run(argv,cwd=cwd,env=env,capture_output=True,text=True,timeout=timeout,shell=False)
  out=proc.stdout
@@ -65,5 +69,7 @@ def execute(command,timeout=60,shell=None,privileged=False,session_id=None):
    cwd=str(Path(candidate).resolve())
    if st:
     with _LOCK:st["cwd"]=cwd
-  out=visible.rstrip("\r\n")+"\n" if visible else ""
+  out=visible.rstrip("\r
+")+"
+" if visible else ""
  return {"code":proc.returncode,"stdout":out[-MAX_OUTPUT:],"stderr":proc.stderr[-MAX_OUTPUT:],"shell":shell,"privileged":bool(privileged),"session_id":session_id,"cwd":cwd}

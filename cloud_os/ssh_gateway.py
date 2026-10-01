@@ -18,7 +18,10 @@ def _can_terminal(identity):
     p=identity.get("permissions",[])
     return "*" in p or "terminal" in p
 
-def _is_admin(identity):\n    return bool(identity and (identity.get("role") in ("owner","admin") or "*" in identity.get("permissions",[])))\n\nclass CloudOSSSHServer(asyncssh.SSHServer):
+def _is_admin(identity):
+    return bool(identity and (identity.get("role") in ("owner","admin") or "*" in identity.get("permissions",[])))
+
+class CloudOSSSHServer(asyncssh.SSHServer):
     def __init__(self): self.identity=None
     def begin_auth(self,username): return True
     def password_auth_supported(self): return True
