@@ -53,7 +53,7 @@ async def _shell(process):
         try:
             if cmd in ("exit","quit"): break
             if cmd=="help":
-                process.stdout.write("Commands: help, pwd, ls [path], cd [path], cat <file>, mkdir <dir>, touch <file>, rm <path>, mv <path> <name>, exit\nUse SFTP/SCP for file transfer.\n")
+                process.stdout.write("Commands: help, pwd, ls [path], cd [path], cat <file>, mkdir <dir>, touch <file>, rm <path>, mv <path> <name>, exit\nFile operations are restricted to this Cloud OS workspace.\n")
             elif cmd=="pwd": process.stdout.write("/"+cwd+"\n")
             elif cmd=="ls":
                 p=safe_path(str(Path(cwd)/(rest[0] if rest else "")))
@@ -107,7 +107,7 @@ async def serve():
     if not cfg.get("ssh_enabled",False): return
     host=str(cfg.get("ssh_host","0.0.0.0"))
     port=int(cfg.get("ssh_port",2222))
-    await asyncssh.create_server(CloudOSSSHServer,host,port,server_host_keys=[_host_key()],process_factory=_shell,sftp_factory=CloudOSSFTPServer)
+    await asyncssh.create_server(CloudOSSSHServer,host,port,server_host_keys=[_host_key()],process_factory=_shell)
     await asyncio.Future()
 
 def start_background():
