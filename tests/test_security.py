@@ -119,3 +119,38 @@ def test_error_detail_is_bounded():
     from cloud_os.errors import payload
     p=payload("SYS-001","x"*5000)
     assert len(p["error"]["detail"])==500
+
+
+def test_corrupt_config_fails_closed(isolated):
+    import cloud_os.config as config
+    config.CONFIG_FILE.write_text("{broken",encoding="utf-8")
+    with pytest.raises(RuntimeError):
+        config.load()
+
+def test_ai_provider_http_error_does_not_expose_body(isolated,monkeypatch):
+    import io
+    import urllib.error
+    import cloud_os.ai as ai
+    class FakeOpener:
+        def __call__(self,*args,**kwargs):
+            raise urllib.error.HTTPError("https://provider.invalid",401,"bad",{},io.BytesIO(b"secret-provider-body"))
+    monkeypatch.setattr(ai.urllib.request,"urlopen",FakeOpener())
+    with pytest.raises(RuntimeError) as exc:
+        ai._post("https://provider.invalid",{},{"x":1})
+    assert "secret-provider-body" not in str(exc.value)
+
+def test_terminal_audit_redaction_contract():
+    import inspect
+    import cloud_os.api as api
+    source=inspect.getsource(api.terminal)
+    assert "body.command[:200]" not in source
+    assert "command_length" in source
+
+def test_cross_origin_mutation_is_blocked():
+    from starlette.requests import Request
+    import cloud_os.api as api
+    scope={"type":"http","method":"POST","path":"/api/folder","headers":[(b"host",b"cloud.local"),(b"origin",b"https://evil.example")]}
+    req=Request(scope)
+    with pytest.raises(Exception) as exc:
+        api._same_origin(req)
+    assert getattr(exc.value,"status_code",None)==403
