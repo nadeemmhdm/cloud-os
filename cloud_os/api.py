@@ -24,7 +24,14 @@ class Login(BaseModel): password:str; username:str="admin"
 class UserCreate(BaseModel): username:str; password:str; display_name:str=""; role:str="member"
 class TeamCreate(BaseModel): name:str
 class MemberChange(BaseModel): username:str; role:str="member"
-class Command(BaseModel): command:str; shell:str|None=None; privileged:bool=False; session_id:str|None=None\nclass TerminalSession(BaseModel): shell:str|None=None
+class Command(BaseModel):
+ command:str
+ shell:str|None=None
+ privileged:bool=False
+ session_id:str|None=None
+
+class TerminalSession(BaseModel):
+ shell:str|None=None
 class PathBody(BaseModel): path:str
 class FileCreate(BaseModel): path:str; content:str=""
 class RenameBody(BaseModel): path:str; new_name:str
