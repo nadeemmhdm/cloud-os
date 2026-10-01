@@ -12,7 +12,7 @@ def report():
     shells=available_shells()
     expected="powershell" if os.name=="nt" else "bash"
     add("Host terminal",expected in shells,f"{expected} ({', '.join(shells) if shells else 'none detected'})")
-    add("SSH tools",bool(shutil.which("ssh") or shutil.which("sshd")),"optional; Cloud OS does not start SSH automatically")
+    add("SSH client",bool(shutil.which("ssh")),"optional client; Cloud OS provides its own SSH gateway")
     add("Cloudflare",bool(shutil.which("cloudflared")),"optional cloudflared binary")
     try:
         port=int(cfg.get("port",8765))

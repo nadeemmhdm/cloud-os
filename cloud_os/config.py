@@ -5,7 +5,7 @@ from pathlib import Path
 APP_DIR=Path(os.getenv("CLOUD_OS_HOME",Path.home()/".cloud-os"))
 CONFIG_FILE=APP_DIR/"config.json"
 DEFAULTS={
- "host":"127.0.0.1","port":8765,"ssh_enabled":True,"ssh_host":"0.0.0.0","ssh_port":2222,"cloudflare_enabled":False,
+ "host":"127.0.0.1","port":8765,"ssh_enabled":True,"ssh_host":"127.0.0.1","ssh_port":2222,"cloudflare_enabled":False,
  "cloudflare_tunnel":"","storage_root":str(Path.home()/"CloudOsStorage"),
  "admin_password_hash":"","secure_cookies":False
 }

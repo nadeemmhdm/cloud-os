@@ -247,6 +247,7 @@ def test_cloud_ssh_defaults_to_separate_port():
     import cloud_os.config as config
     assert config.DEFAULTS["ssh_port"]==2222
     assert config.DEFAULTS["ssh_enabled"] is True
+    assert config.DEFAULTS["ssh_host"]=="127.0.0.1"
 
 
 def test_terminal_session_persists_working_directory(isolated):
@@ -288,3 +289,13 @@ def test_ai_widget_has_no_provider_selector():
     assert 'id="chatProvider"' not in html
     assert "loadChatProviders" not in html
     assert "/api/ai/chat" in html
+
+
+def test_integration_status_exposes_safe_cloudflare_origins(isolated,monkeypatch):
+    import cloud_os.integrations as integrations
+    monkeypatch.setattr(integrations,"load",lambda:{"ssh_enabled":True,"ssh_host":"127.0.0.1","ssh_port":2222,"port":8765,"cloudflare_enabled":False,"cloudflare_tunnel":""})
+    s=integrations.status()
+    assert s["ssh"]["loopback_only"] is True
+    assert s["ssh"]["cloudflare_origin"]=="ssh://127.0.0.1:2222"
+    assert s["cloudflare"]["web_origin"]=="http://127.0.0.1:8765"
+    assert s["cloudflare"]["ssh_client_proxy"]=="cloudflared access ssh --hostname %h"
