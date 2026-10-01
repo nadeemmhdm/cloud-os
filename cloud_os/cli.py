@@ -122,26 +122,11 @@ def doctor():
 
 @app.command("install-service")
 def install_service():
-    if os.name == "nt":
-        _warn("Windows service installation is not implemented yet.")
-        typer.echo("Cloud OS itself is installed. Use 'cloud-os start' until the Windows service backend is added.")
-        return
-
-    if not shutil.which("systemctl"):
-        _fail("SVC01", "systemd/systemctl is not available on this Linux system.", "Use 'cloud-os start' or install a supported service manager.")
-
-    source = REPO_DIR / "packaging" / "cloud-os.service"
-    if not source.exists():
-        _fail("SVC02", f"Service template not found: {source}", "Re-run the Cloud OS installer to repair the installation.")
-
-    target = Path("/etc/systemd/system/cloud-os.service")
-    try:
-        shutil.copyfile(source, target)
-    except PermissionError:
-        _fail("SVC03", "Administrator/root permission is required to install the service.", "Run: sudo cloud-os install-service")
-    _run(["systemctl", "daemon-reload"])
-    _run(["systemctl", "enable", "--now", "cloud-os"])
-    _ok("Cloud OS systemd service installed and started.")
+    _fail(
+        "SVC00",
+        "Automatic system service installation is disabled in this development build.",
+        "Use 'cloud-os start'. A dedicated unprivileged service account will be required before service mode is enabled.",
+    )
 
 
 @app.command("update-check")
