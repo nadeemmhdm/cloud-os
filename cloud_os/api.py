@@ -3,14 +3,14 @@ import shutil,subprocess
 from fastapi import APIRouter,HTTPException,Request,Response,UploadFile,File
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
-from .auth import login,logout,allowed,identity,login_allowed,note_login_failure,clear_login_failures
+from .auth import login,logout,allowed,identity,login_allowed,note_login_failure,clear_login_failures,verify,hash_password,revoke_user,change_admin_password
 from .files import safe_path,safe_upload_path,list_items
 from .terminal import execute,available_shells
 from .backup import create_backup,list_backups
 from .doctor import report
 from .integrations import status as integration_status
 from .audit import record,recent
-from .teams import create_user,users,create_team,teams,add_member,remove_member
+from .teams import create_user,users,create_team,teams,add_member,remove_member,set_password,set_disabled
 from .config import load
 from .errors import payload
 from .ai import status as ai_status,configure as ai_configure,remove as ai_remove,help_answer
@@ -29,6 +29,9 @@ class PathBody(BaseModel): path:str
 class AIConfig(BaseModel): provider:str; api_key:str; model:str=""
 class AIAsk(BaseModel): provider:str; prompt:str
 class BoostBody(BaseModel): enabled:bool=True
+class PasswordChange(BaseModel): current_password:str; new_password:str
+class AdminPasswordReset(BaseModel): new_password:str
+class AccountState(BaseModel): disabled:bool
 
 def token(req:Request): return req.cookies.get("cloudos_session","")
 
@@ -156,7 +159,8 @@ def me(req:Request): return require(req)
 @router.get("/users")
 def list_users(req:Request):
  require(req,"teams.manage")
- return [{"username":"admin","id":"builtin-owner","display_name":"Administrator","role":"owner","disabled":False}]+users()
+ cfg=load()
+ return [{"username":"admin","id":"builtin-owner","display_name":"Administrator","role":"owner","disabled":False,"created_at":None,"first_login_at":cfg.get("admin_first_login_at"),"last_login_at":cfg.get("admin_last_login_at")}]+users()
 
 @router.post("/users")
 def new_user(body:UserCreate,req:Request):
@@ -164,6 +168,40 @@ def new_user(body:UserCreate,req:Request):
  try:u=create_user(body.username,body.password,body.display_name,body.role)
  except ValueError as e: fail(400,"USER-001",str(e))
  record("user.create",body.username); return u
+
+
+@router.post("/account/password")
+def own_password(body:PasswordChange,req:Request):
+ user=require(req)
+ try:
+  if user["username"]=="admin":
+   change_admin_password(body.current_password,body.new_password)
+  else:
+   from .teams import authenticate
+   if not authenticate(user["username"],body.current_password): fail(403,"AUTH-001")
+   set_password(user["username"],body.new_password); revoke_user(user["username"])
+ except ValueError as e: fail(400,"USER-001",str(e))
+ record("account.password.change",user["username"])
+ return {"ok":True,"reauthenticate":True}
+
+@router.post("/users/{username}/password")
+def admin_password(username:str,body:AdminPasswordReset,req:Request):
+ actor=require(req,"teams.manage")
+ if username=="admin": fail(403,"PERM-001","Owner password can only be changed from the owner's own Settings page")
+ try:set_password(username,body.new_password)
+ except ValueError as e: fail(400,"USER-001",str(e))
+ revoke_user(username); record("user.password.reset",f"{actor['username']}:{username}")
+ return {"ok":True}
+
+@router.post("/users/{username}/state")
+def admin_state(username:str,body:AccountState,req:Request):
+ actor=require(req,"teams.manage")
+ if username=="admin": fail(403,"PERM-001","The built-in owner account cannot be blocked")
+ try:set_disabled(username,body.disabled)
+ except ValueError as e: fail(400,"USER-001",str(e))
+ if body.disabled: revoke_user(username)
+ record("user.state",f"{actor['username']}:{username}:disabled={body.disabled}")
+ return {"ok":True}
 
 @router.get("/teams")
 def list_teams(req:Request): require(req,"teams.manage"); return teams()
