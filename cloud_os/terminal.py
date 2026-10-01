@@ -42,7 +42,7 @@ def execute(command,timeout=60,shell=None,privileged=False,session_id=None):
  if not isinstance(command,str) or not command.strip() or len(command)>MAX_COMMAND: raise ValueError("Invalid command")
  st=_state(session_id)
  shell=(st or {}).get("shell") or shell or ("powershell" if os.name=="nt" else "bash")
- exe=_exe(shell); cwd=(st or {}).get("cwd",str(storage_root())); env=(st or {}).get("env",os.environ.copy())
+ if privileged and os.name=="nt": raise PermissionError("Administrative PowerShell requires Cloud OS itself to be running elevated; UAC is never bypassed")\n exe=_exe(shell)\n cwd=(st or {}).get("cwd") if st else str(storage_root())\n env=(st or {}).get("env") if st else os.environ.copy()
  if privileged:
   if os.name=="nt": raise PermissionError("Administrative PowerShell requires Cloud OS itself to be running elevated; UAC is never bypassed")
   sudo=shutil.which("sudo")
