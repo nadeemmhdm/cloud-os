@@ -271,3 +271,20 @@ def test_ssh_admin_policy_is_role_based():
     assert ssh._is_admin({"role":"admin","permissions":["terminal"]})
     assert ssh._is_admin({"role":"owner","permissions":["*"]})
     assert not ssh._is_admin({"role":"operator","permissions":["terminal"]})
+
+
+def test_ai_chat_auto_selects_provider(isolated,monkeypatch):
+    import cloud_os.ai as ai
+    monkeypatch.setattr(ai,"_credential",lambda p: ("key","model") if p=="openai" else ("","model"))
+    monkeypatch.setattr(ai,"repo_context",lambda q: "")
+    monkeypatch.setattr(ai,"ask",lambda provider,prompt,system: f"{provider}:{prompt}")
+    r=ai.chat_answer("write python code")
+    assert r["provider"]=="openai"
+    assert r["answer"]=="openai:write python code"
+
+def test_ai_widget_has_no_provider_selector():
+    import cloud_os
+    html=Path(cloud_os.__file__).with_name("dashboard.html").read_text(encoding="utf-8")
+    assert 'id="chatProvider"' not in html
+    assert "loadChatProviders" not in html
+    assert "/api/ai/chat" in html

@@ -13,7 +13,7 @@ from .audit import record,recent
 from .teams import create_user,users,create_team,teams,add_member,remove_member,set_password,set_disabled
 from .config import load
 from .errors import payload
-from .ai import status as ai_status,configure as ai_configure,remove as ai_remove,help_answer
+from .ai import status as ai_status,configure as ai_configure,remove as ai_remove,chat_answer
 from .booster import status as booster_status,boost as booster_enable,normal as booster_normal
 
 router=APIRouter(prefix="/api")
@@ -37,7 +37,7 @@ class FileCreate(BaseModel): path:str; content:str=""
 class RenameBody(BaseModel): path:str; new_name:str
 class FileSave(BaseModel): path:str; content:str
 class AIConfig(BaseModel): provider:str; api_key:str; model:str=""
-class AIAsk(BaseModel): provider:str; prompt:str
+class AIAsk(BaseModel): prompt:str
 class BoostBody(BaseModel): enabled:bool=True
 class PasswordChange(BaseModel): current_password:str; new_password:str
 class AdminPasswordReset(BaseModel): new_password:str
@@ -308,15 +308,16 @@ def delete_ai(provider:str,req:Request):
  except ValueError as e: fail(400,"AI-001",str(e))
  record("ai.remove",f"{user['username']}:{provider}"); return r
 
-@router.post("/ai/help")
-def ai_help(body:AIAsk,req:Request):
+@router.post("/ai/chat")
+def ai_chat(body:AIAsk,req:Request):
  user=require(req)
+ if not body.prompt.strip(): fail(400,"AI-002","Prompt is required")
  if len(body.prompt)>8000: fail(400,"AI-002","Prompt is too long")
- try:answer=help_answer(body.provider,body.prompt)
+ try:r=chat_answer(body.prompt)
  except ValueError as e: fail(400,"AI-001",str(e))
  except RuntimeError as e: fail(502,"AI-003",str(e))
- record("ai.help",f"{user['username']}:{body.provider}:chars={len(body.prompt)}")
- return {"answer":answer,"provider":body.provider}
+ record("ai.chat",f"{user['username']}:provider={r['provider']}:chars={len(body.prompt)}")
+ return {"answer":r["answer"]}
 
 @router.get("/booster")
 def get_booster(req:Request):
