@@ -20,7 +20,8 @@ def _load():
   d=json.loads(DB.read_text(encoding="utf-8"))
   if not isinstance(d,dict) or not isinstance(d.get("users"),dict) or not isinstance(d.get("teams"),dict): raise ValueError
   return d
- except Exception:return {"users":{},"teams":{}}
+ except (OSError,json.JSONDecodeError,TypeError,ValueError) as exc:
+  raise RuntimeError(f"Access database is unreadable or corrupt: {exc}") from exc
 
 def _save(data):
  APP_DIR.mkdir(parents=True,exist_ok=True)
