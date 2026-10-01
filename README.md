@@ -1,12 +1,43 @@
-# Cloud Os
+# Cloud OS
 
-Cloud Os is a lightweight self-hosted personal cloud server for Windows 10/11 and Linux. It combines a responsive management dashboard with persistent configuration, restricted storage, diagnostics, SSH/Cloudflare integration hooks, backups, an authorized server terminal, and team-based access control.
+**A lightweight, self-hosted personal cloud management layer for Windows and Linux.**
 
-> **Development status:** Cloud Os is actively being built. Do not expose the development HTTP service directly to the public Internet.
+Cloud OS turns an existing computer into a privately managed server without replacing the host operating system. It provides a responsive web dashboard for storage, system monitoring, users and teams, backups, diagnostics, terminal access, integrations, and optional AI-assisted troubleshooting.
 
-## Fast install
+> **Development status:** Cloud OS is actively developed. Do not expose its development HTTP service directly to the public Internet.
+
+## Website & Demo
+
+- **Website:** https://nadeemmhdm.github.io/cloud-os/site/
+- **Documentation:** https://nadeemmhdm.github.io/cloud-os/site/docs.html
+- **Searchable Error Codes:** https://nadeemmhdm.github.io/cloud-os/site/errors.html
+- **Product Demo:** https://nadeemmhdm.github.io/cloud-os/site/#demo
+
+The product demo source is stored at `site/assets/cloud-os-demo.mov`.
+
+## Highlights
+
+- Responsive Cloud OS dashboard for desktop and mobile
+- CPU, memory, storage and uptime monitoring
+- Restricted Cloud OS storage root and file-management APIs
+- Owner, Admin, Operator, Member and Viewer RBAC
+- Users, teams and permission-aware management operations
+- Host-native PowerShell on Windows and Bash on Linux
+- Explicit terminal timeout, output and authorization boundaries
+- On-demand backups and audit logging
+- SSH and Cloudflare Tunnel integration/status hooks
+- `cloud-os doctor` diagnostics
+- Optional AI Help using Gemini, OpenAI, Claude or Ollama Cloud
+- Documentation-grounded AI troubleshooting context
+- Safe process-priority performance booster
+- Windows and Linux CI security test matrix
+
+## Install
+
+Review installation scripts before executing remote code.
 
 ### Windows 10/11
+
 Run PowerShell as Administrator:
 
 ```powershell
@@ -14,13 +45,12 @@ irm https://raw.githubusercontent.com/nadeemmhdm/cloud-os/main/install.ps1 | iex
 ```
 
 ### Linux
+
 ```bash
 curl -fsSL https://raw.githubusercontent.com/nadeemmhdm/cloud-os/main/install.sh | bash
 ```
 
-The installer/autostart path is still undergoing end-to-end platform validation. See [Installation](docs/INSTALLATION.md) before production deployment.
-
-## Core commands
+Then configure and start Cloud OS:
 
 ```text
 cloud-os setup
@@ -29,66 +59,96 @@ cloud-os status
 cloud-os doctor
 ```
 
-## Implemented foundation
+See [Installation](docs/INSTALLATION.md) for platform behavior and limitations.
 
-- FastAPI server and health/system endpoints
-- Responsive animated macOS-inspired dashboard with boot/loading flow
-- Safe Cloud OS process performance booster with truthful applied/not-applied status
-- Multi-provider AI Help: Gemini, OpenAI, Claude and Ollama Cloud
-- Local Markdown documentation context for AI-assisted error and issue troubleshooting
-- CPU, RAM, storage and uptime monitoring
-- Persistent configuration and isolated storage root
-- File listing, upload, download, folder creation and deletion APIs
-- Password hashing and expiring authenticated sessions
-- Team/member RBAC with Owner, Admin, Operator, Member and Viewer roles
-- Permission checks for files, terminal, backups, network, audit and team management
-- Authorized server terminal backend with timeout/output limits
-- Audit logging
-- On-demand backups
-- SSH and Cloudflare Tunnel integration/status hooks
-- `cloud-os doctor` diagnostics
-- Linux systemd service foundation
-- Windows/Linux installer foundations
+## Architecture
 
-## Access model
+Cloud OS runs on top of the existing host operating system. It does **not** format the machine or replace Windows/Linux.
 
-The built-in administrator is the **Owner**. Administrators can create users and teams and assign roles. Members may belong to multiple teams; effective permissions are combined from their assigned roles.
+```text
+Browser / Phone / Laptop
+          |
+     HTTPS / Tunnel
+          |
+      Cloud OS API
+          |
+ Authentication + RBAC
+          |
+  ---------------------
+  | Files | Terminal |
+  | Backup| Audit    |
+  | AI    | System   |
+  ---------------------
+          |
+   Windows / Linux host
+```
 
-See [Teams and Access Control](docs/TEAMS.md).
+For Internet-facing access, place Cloud OS behind authenticated HTTPS/TLS access such as a properly configured tunnel, VPN, or hardened reverse proxy. A tunnel does not replace Cloud OS authentication or RBAC.
 
-## Product Demo
+## Access Control
 
-See Cloud OS running in the product showcase on the [Cloud OS website](https://nadeemmhdm.github.io/cloud-os/site/#demo).
+The built-in `admin` account is the **Owner** and retains full platform access.
 
-Video asset: `site/assets/cloud-os-demo.mov`.
+| Role | Intended access |
+| --- | --- |
+| Owner | Full platform access; reserved for the built-in primary administrator |
+| Admin | Files, terminal, backups, network, audit, teams and settings |
+| Operator | Files, terminal, backups and network |
+| Member | File read/write |
+| Viewer | File read only |
 
-## Documentation
+See [Teams and RBAC](docs/TEAMS.md).
 
-- [Installation](docs/INSTALLATION.md)
-- [Architecture](docs/ARCHITECTURE.md)
-- [Security Architecture](docs/SECURITY.md)
-- [Teams and RBAC](docs/TEAMS.md)
-- [Troubleshooting](docs/TROUBLESHOOTING.md)
-- [Error Codes](docs/ERROR_CODES.md)
-- [Updates and Rollback](docs/UPDATES.md)
-- [Roadmap](docs/ROADMAP.md)
-- [Security Policy](SECURITY.md)
-- [Contributing](CONTRIBUTING.md)
-- [Collaboration Guide](COLLABORATE.md)
-- [Support](SUPPORT.md)
-- [Code of Conduct](CODE_OF_CONDUCT.md)
-- [Changelog](CHANGELOG.md)
+## AI Help
+
+Cloud OS can use one configured provider: **Gemini, OpenAI, Claude, or Ollama Cloud**. Provider credentials remain server-side and must never be committed.
+
+AI Help retrieves relevant local project documentation and supplies it as reference context for troubleshooting. This is contextual retrieval, **not model training or fine-tuning**.
 
 ## Security
 
-AI provider keys are server-side secrets and must never be committed to the repository or exposed in browser source. Environment variables are preferred for managed deployments. Terminal access inherits the operating-system privileges of the Cloud Os process. Grant it only to trusted operators. Prefer SSH keys and authenticated HTTPS/tunnel access, use strong unique passwords, and never commit credentials or private keys.
+Cloud OS uses salted password hashing, expiring sessions, login throttling, permission checks, restricted storage paths, bounded terminal execution, audit logging, and browser same-origin checks for state-changing authenticated operations.
 
-See [SECURITY.md](SECURITY.md).
+The web terminal executes with the operating-system privileges available to the Cloud OS process. Windows UAC is not bypassed. Grant terminal access only to trusted users.
 
-## Project status
+For deployment requirements and vulnerability reporting, read [Security Policy](SECURITY.md) and [Security Architecture](docs/SECURITY.md).
 
-Several management APIs are implemented, but the complete multi-page management UI, production-grade automatic update/rollback, and full Windows/Linux end-to-end verification remain development work. See the [Roadmap](docs/ROADMAP.md).
+## Documentation
+
+| Guide | Purpose |
+| --- | --- |
+| [Installation](docs/INSTALLATION.md) | Install and platform behavior |
+| [Architecture](docs/ARCHITECTURE.md) | Components and trust boundaries |
+| [Security Architecture](docs/SECURITY.md) | Security model and deployment guidance |
+| [Teams & RBAC](docs/TEAMS.md) | Users, roles and permissions |
+| [Troubleshooting](docs/TROUBLESHOOTING.md) | Diagnosis and recovery |
+| [Error Codes](docs/ERROR_CODES.md) | Stable error-code reference |
+| [Updates & Rollback](docs/UPDATES.md) | Update channels and rollback |
+| [Roadmap](docs/ROADMAP.md) | Planned development |
+| [Contributing](CONTRIBUTING.md) | Development and pull-request standards |
+| [Support](SUPPORT.md) | Bug-reporting guidance |
+| [Code of Conduct](CODE_OF_CONDUCT.md) | Community expectations |
+| [Changelog](CHANGELOG.md) | Project history |
+
+## Current Limitations
+
+Cloud OS is not yet a production-hardened appliance. In particular, signed/checksummed update artifacts, complete backup restore/integrity workflows, persistent distributed sessions, hardened Windows secret ACL handling, and full pre-login Windows service architecture remain development areas.
+
+Current Windows automatic startup is logon-triggered. The Linux development installer does not enable Cloud OS as a root system service.
+
+## Development
+
+Use Python 3.10 or newer.
+
+```bash
+python -m venv .venv
+# activate the environment for your shell
+python -m pip install -e ".[test]"
+pytest -q
+```
+
+Security-sensitive changes should include regression tests and preserve Windows/Linux behavior.
 
 ## License
 
-Cloud Os is available under the [MIT License](LICENSE).
+Cloud OS is licensed under the [MIT License](LICENSE).
