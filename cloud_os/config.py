@@ -20,8 +20,12 @@ def load():
  APP_DIR.mkdir(parents=True,exist_ok=True)
  if not CONFIG_FILE.exists(): save(DEFAULTS.copy())
  data=DEFAULTS.copy()
- try: data.update(json.loads(CONFIG_FILE.read_text(encoding="utf-8")))
- except (OSError,json.JSONDecodeError): pass
+ try:
+  raw=json.loads(CONFIG_FILE.read_text(encoding="utf-8"))
+  if not isinstance(raw,dict): raise ValueError("configuration root must be an object")
+  data.update(raw)
+ except (OSError,json.JSONDecodeError,ValueError) as exc:
+  raise RuntimeError(f"Cloud OS configuration is unreadable or corrupt: {exc}") from exc
  return data
 
 def save(data):
