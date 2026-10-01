@@ -76,3 +76,27 @@ def test_windows_privileged_terminal_never_bypasses_uac(isolated,monkeypatch):
     monkeypatch.setattr(terminal.os,"name","nt")
     with pytest.raises(PermissionError):
         terminal.execute("Write-Output test",shell="powershell",privileged=True)
+
+
+def test_corrupt_access_database_fails_closed(isolated):
+    import cloud_os.teams as teams
+    teams.DB.parent.mkdir(parents=True,exist_ok=True)
+    teams.DB.write_text("{broken",encoding="utf-8")
+    with pytest.raises(RuntimeError):
+        teams.users()
+
+def test_backup_names_do_not_collide(isolated):
+    import cloud_os.backup as backup
+    import cloud_os.files as files
+    files.load=lambda:{"storage_root":str(isolated/"storage")}
+    root=files.storage_root()
+    (root/"data.txt").write_text("ok",encoding="utf-8")
+    a=backup.create_backup()
+    b=backup.create_backup()
+    assert a!=b
+
+def test_audit_detail_is_bounded(isolated):
+    import cloud_os.audit as audit
+    audit.record("test","x"*10000)
+    rows=audit.recent()
+    assert len(rows[-1]["detail"])==4096
