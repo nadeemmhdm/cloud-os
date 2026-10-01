@@ -150,16 +150,19 @@ def list_teams(req:Request): require(req,"teams.manage"); return teams()
 def new_team(body:TeamCreate,req:Request):
  require(req,"teams.manage")
  try:t=create_team(body.name)
- except ValueError as e: fail(400,"TEAM-001",str(e)),body.name); return t
+ except ValueError as e: fail(400,"TEAM-001",str(e))
+ record("team.create",body.name); return t
 
 @router.post("/teams/{team}/members")
 def team_add(team:str,body:MemberChange,req:Request):
  require(req,"teams.manage")
  try:add_member(team,body.username,body.role)
- except ValueError as e: fail(400,"TEAM-001",str(e)),team+":"+body.username); return {"ok":True}
+ except ValueError as e: fail(400,"TEAM-001",str(e))
+ record("team.member.add",team+":"+body.username); return {"ok":True}
 
 @router.delete("/teams/{team}/members/{username}")
 def team_remove(team:str,username:str,req:Request):
  require(req,"teams.manage")
  try:remove_member(team,username)
- except ValueError as e: fail(400,"TEAM-001",str(e)),team+":"+username); return {"ok":True}
+ except ValueError as e: fail(400,"TEAM-001",str(e))
+ record("team.member.remove",team+":"+username); return {"ok":True}
