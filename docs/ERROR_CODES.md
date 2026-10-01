@@ -74,3 +74,14 @@ The CLI already emits codes including:
 ## Support rule
 
 When reporting a problem, include the error code, Cloud OS version, host OS and the output of `cloud-os doctor`. Do not share passwords, session cookies, tunnel tokens, private keys or other secrets.
+
+
+## AI integration
+| Code | Meaning | What to do |
+|---|---|---|
+| AI-001 | Provider/configuration error | Configure a supported provider and valid API key/model. |
+| AI-002 | AI prompt too long | Shorten the question and retry. |
+| AI-003 | AI provider request failed | Check Internet access, provider status, API key, model name and quota. |
+
+## Performance booster
+The dashboard booster changes the Cloud OS process scheduler priority when the host OS permits it. It does not overclock hardware, change BIOS settings, disable thermal controls, or terminate unrelated processes. If the OS denies the priority change, Cloud OS reports that the boost was not applied.
