@@ -3,8 +3,18 @@
 All notable Cloud OS changes are documented here. Detailed release-note drafts are stored under `releases/`.
 
 ## Unreleased
+### Added
+- Standalone Cloud OS website with landing, documentation and searchable error-code pages.
+- Product demo video and unified Cloud OS visual branding across the website and dashboard.
+- Optional multi-provider AI Help and process-priority performance booster controls.
+- Mobile hamburger navigation and responsive website improvements.
+
 ### Security
-- Access-control database corruption now fails closed instead of silently returning an empty database.
+- Corrupt configuration now fails closed instead of silently falling back to defaults.
+- State-changing authenticated browser requests enforce same-origin checks.
+- Terminal audit records no longer store raw command text.
+- AI provider HTTP failures are sanitized before reaching clients.
+- Access-control database corruption fails closed instead of silently returning an empty database.
 - Audit records are length-bounded, POSIX-protected and size-rotated.
 - Backup names include a random suffix to prevent same-second collisions.
 - Terminal timeout and authorization failures are handled explicitly.
