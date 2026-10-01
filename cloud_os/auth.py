@@ -1,5 +1,6 @@
 from __future__ import annotations
 import hashlib,hmac,secrets,time
+from datetime import datetime,timezone
 from collections import defaultdict, deque
 from .config import load,save
 
@@ -42,11 +43,15 @@ def login(password,username="admin"):
  cfg=load()
  if username=="admin":
   if not cfg.get("admin_password_hash") or not verify(password,cfg.get("admin_password_hash","")): return None
+  now=datetime.now(timezone.utc).isoformat()
+  cfg.setdefault("admin_first_login_at",now); cfg["admin_last_login_at"]=now; save(cfg)
   identity_data={"username":"admin","role":"owner","permissions":["*"]}
  else:
   from .teams import authenticate,permissions
   u=authenticate(username,password)
   if not u:return None
+  from .teams import note_login
+  note_login(username)
   identity_data={"username":username,"role":u.get("role","member"),"permissions":permissions(username)}
  token=secrets.token_urlsafe(32)
  SESSIONS[token]={"expires":time.time()+43200,"identity":identity_data}
@@ -63,3 +68,15 @@ def allowed(token,permission):
  i=identity(token)
  return bool(i and ("*" in i["permissions"] or permission in i["permissions"]))
 def logout(token): SESSIONS.pop(token,None)
+
+def revoke_user(username):
+ for t,s in list(SESSIONS.items()):
+  if s.get("identity",{}).get("username")==username: SESSIONS.pop(t,None)
+
+def change_admin_password(current,new):
+ cfg=load()
+ if not verify(current,cfg.get("admin_password_hash","")): raise ValueError("Current password is incorrect")
+ cfg["admin_password_hash"]=hash_password(new); save(cfg); revoke_user("admin")
+
+def reset_admin_password(new):
+ cfg=load(); cfg["admin_password_hash"]=hash_password(new); save(cfg); revoke_user("admin")
