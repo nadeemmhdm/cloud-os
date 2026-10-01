@@ -6,7 +6,7 @@ import pytest
 def isolated(tmp_path,monkeypatch):
     monkeypatch.setenv("CLOUD_OS_HOME",str(tmp_path/"home"))
     import cloud_os.config as config
-    config.APP_DIR=tmp_path/"home"; config.CONFIG_FILE=config.APP_DIR/"config.json"
+    config.APP_DIR=tmp_path/"home"; config.APP_DIR.mkdir(parents=True,exist_ok=True); config.CONFIG_FILE=config.APP_DIR/"config.json"
     import cloud_os.teams as teams
     teams.DB=config.APP_DIR/"access.json"
     import cloud_os.audit as audit
