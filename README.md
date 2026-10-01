@@ -56,6 +56,12 @@ The built-in administrator is the **Owner**. Administrators can create users and
 
 See [Teams and Access Control](docs/TEAMS.md).
 
+## Product Demo
+
+See Cloud OS running in the product showcase on the [Cloud OS website](https://nadeemmhdm.github.io/cloud-os/site/#demo).
+
+Video asset: `site/assets/cloud-os-demo.mov`.
+
 ## Documentation
 
 - [Installation](docs/INSTALLATION.md)
