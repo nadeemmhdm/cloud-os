@@ -1,7 +1,7 @@
 import platform,time,shutil,subprocess,os
 import psutil
 from fastapi import FastAPI,Request
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse,FileResponse
 from . import __version__
 from .api import router,require
 
@@ -68,6 +68,11 @@ def system_details(req:Request):
   "cloud_os_version":__version__,
   "drives":drives
 }
+
+@app.get("/cloud-os-logo.svg")
+def cloud_os_logo():
+ from pathlib import Path
+ return FileResponse(Path(__file__).with_name("cloud-os-logo.svg"),media_type="image/svg+xml")
 
 @app.get("/",response_class=HTMLResponse)
 def dashboard():
