@@ -168,3 +168,22 @@ def test_server_csp_allows_embedded_logo():
     import cloud_os.server as server
     source=inspect.getsource(server.security_headers)
     assert "img-src 'self' data:" in source
+
+
+def test_user_login_metadata_and_account_controls(isolated):
+    import cloud_os.teams as teams
+    teams.create_user("managed1","correct-horse-battery","Managed","member")
+    teams.note_login("managed1")
+    u=next(x for x in teams.users() if x["username"]=="managed1")
+    assert u["first_login_at"] and u["last_login_at"]
+    teams.set_password("managed1","another-correct-password")
+    assert teams.authenticate("managed1","another-correct-password")
+    teams.set_disabled("managed1",True)
+    assert teams.authenticate("managed1","another-correct-password") is None
+
+def test_dashboard_realtime_and_account_admin_controls():
+    from pathlib import Path
+    import cloud_os
+    html=Path(cloud_os.__file__).with_name("dashboard.html").read_text(encoding="utf-8")
+    for marker in ("live update every 2s","Reset password","Unblock","Change password","First login:","Last login:"):
+        assert marker in html
