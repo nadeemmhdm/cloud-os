@@ -138,7 +138,10 @@ def terminal(body:Command,req:Request):
 
 @router.post("/backup")
 def backup(req:Request):
- require(req,"backups"); p=create_backup(); record("backup.create",p); return {"path":p}
+ require(req,"backups")
+ try: p=create_backup()
+ except (OSError,shutil.Error) as e: fail(500,"BACKUP-001",str(e))
+ record("backup.create",p); return {"path":p}
 
 @router.get("/backups")
 def backups(req:Request): require(req,"backups"); return list_backups()
@@ -151,7 +154,9 @@ def audit(req:Request): require(req,"audit"); return recent()
 @router.get("/me")
 def me(req:Request): return require(req)
 @router.get("/users")
-def list_users(req:Request): require(req,"teams.manage"); return users()
+def list_users(req:Request):
+ require(req,"teams.manage")
+ return [{"username":"admin","id":"builtin-owner","display_name":"Administrator","role":"owner","disabled":False}]+users()
 
 @router.post("/users")
 def new_user(body:UserCreate,req:Request):
