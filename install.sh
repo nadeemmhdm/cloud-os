@@ -58,12 +58,9 @@ $SUDO ln -sf "$DIR/.venv/bin/cloud-os" /usr/local/bin/cloud-os
 step "Running setup"
 cloud-os setup
 
-step "Installing startup service"
-if command -v systemctl >/dev/null 2>&1; then
-  $SUDO cloud-os install-service || printf '[WARN] Automatic startup could not be enabled. Use: cloud-os start\n'
-else
-  printf '[WARN] systemd is unavailable. Use: cloud-os start\n'
-fi
+step "Startup service"
+printf '[WARN] Automatic system service installation is disabled in this development build.\n'
+printf '[WARN] This prevents the web terminal from accidentally running as root. Use: cloud-os start\n'
 
 step "Verifying installation"
 cloud-os doctor
