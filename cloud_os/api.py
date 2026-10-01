@@ -20,7 +20,7 @@ class Login(BaseModel): password:str; username:str="admin"
 class UserCreate(BaseModel): username:str; password:str; display_name:str=""; role:str="member"
 class TeamCreate(BaseModel): name:str
 class MemberChange(BaseModel): username:str; role:str="member"
-class Command(BaseModel): command:str; shell:str|None=None
+class Command(BaseModel): command:str; shell:str|None=None; privileged:bool=False
 class PathBody(BaseModel): path:str
 
 def token(req:Request): return req.cookies.get("cloudos_session","")
@@ -105,9 +105,10 @@ def terminal_shells(req:Request):
 @router.post("/terminal")
 def terminal(body:Command,req:Request):
  user=require(req,"terminal")
- try:r=execute(body.command,shell=body.shell)
+ if body.privileged and user.get("role") not in ("owner","admin"): raise HTTPException(403,"Privileged terminal requires Owner or Admin role")
+ try:r=execute(body.command,shell=body.shell,privileged=body.privileged)
  except Exception as e: raise HTTPException(400,str(e))
- record("terminal.command",f"{user['username']}:{body.command[:200]}"); return r
+ record("terminal.command",f"{user['username']}:privileged={body.privileged}:shell={body.shell or 'host-default'}:code={r.get('code')}:{body.command[:200]}"); return r
 
 @router.post("/backup")
 def backup(req:Request):
