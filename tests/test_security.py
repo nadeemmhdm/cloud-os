@@ -233,18 +233,34 @@ def test_dashboard_logo_route_exists():
     assert "cloud-os-logo.svg" in inspect.getsource(server.cloud_os_logo)
 
 
-def test_cloud_ssh_gateway_is_isolated():
+def test_cloud_ssh_gateway_uses_native_shell_without_shell_true():
     import inspect
     import cloud_os.ssh_gateway as ssh
     source=inspect.getsource(ssh)
-    assert "subprocess" not in source
-    assert "os.system" not in source
     assert "create_server" in source
-    assert "safe_path" in source
-    assert "process_factory=_shell" in source
-    assert "sftp_factory=" not in source
+    assert "create_subprocess_exec" in source
+    assert "shell=True" not in source
+    assert "process_factory=_process" in source
+    assert "_can_terminal" in source
 
 def test_cloud_ssh_defaults_to_separate_port():
     import cloud_os.config as config
     assert config.DEFAULTS["ssh_port"]==2222
     assert config.DEFAULTS["ssh_enabled"] is True
+
+
+def test_terminal_session_persists_working_directory(isolated):
+    import cloud_os.terminal as terminal
+    import cloud_os.files as files
+    files.load=lambda:{"storage_root":str(isolated/"storage")}
+    root=files.storage_root()
+    child=root/"child"; child.mkdir()
+    if os.name=="nt":
+        if not terminal.available_shells(): pytest.skip("PowerShell unavailable")
+        s=terminal.create_session("powershell")
+        r=terminal.execute("Set-Location child",shell="powershell",session_id=s["session_id"])
+    else:
+        s=terminal.create_session("bash")
+        r=terminal.execute("cd child",shell="bash",session_id=s["session_id"])
+    assert Path(r["cwd"]).name=="child"
+    terminal.close_session(s["session_id"])
