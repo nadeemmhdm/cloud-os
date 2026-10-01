@@ -1,6 +1,7 @@
 from __future__ import annotations
 import shutil,subprocess
 from .config import load
+from .ssh_gateway import start_background
 
 def start_cloudflare():
     cfg=load()
@@ -11,6 +12,6 @@ def start_cloudflare():
     return subprocess.Popen([exe,"tunnel","run",tunnel],stdin=subprocess.DEVNULL,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
 
 def prepare_integrations():
-    # Cloud OS never starts/stops the host SSH daemon implicitly.
-    # Host services remain under the operating system administrator's control.
-    return start_cloudflare()
+    # Cloud OS owns this isolated SSH/SFTP gateway. Host sshd is never started.
+    ssh_thread=start_background()
+    return {"cloudflare":start_cloudflare(),"ssh":ssh_thread}
