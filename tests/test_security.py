@@ -201,3 +201,17 @@ def test_system_details_endpoint_requires_auth():
     import cloud_os.server as server
     source=inspect.getsource(server.system_details)
     assert "require(req)" in source
+
+
+def test_file_editor_and_dashboard_ux_contract():
+    from pathlib import Path
+    import cloud_os
+    html=Path(cloud_os.__file__).with_name("dashboard.html").read_text(encoding="utf-8")
+    for marker in ("New file","data-ren","/api/file/content","sideToggle","modalShade","data-st=\"about\""):
+        assert marker in html
+    assert "</section>\\n" not in html
+
+def test_booster_status_is_not_hardcoded():
+    import inspect
+    import cloud_os.booster as booster
+    assert '"mode":"normal"' not in inspect.getsource(booster.status)
