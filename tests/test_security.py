@@ -350,3 +350,10 @@ def test_collapsed_sidebar_is_icon_navigation_rail():
     assert ".app.sideHidden .nav button span" in html
     assert 'data-delbackup' in html
     assert "Latest backup · protected" in html
+
+
+def test_overview_has_live_user_clock_date_and_timezone():
+    import cloud_os
+    html=Path(cloud_os.__file__).with_name("dashboard.html").read_text(encoding="utf-8")
+    for marker in ("clockCard","clockTime","clockDate","Intl.DateTimeFormat","Signed in as","clockTimer=setInterval(tick,1000)"):
+        assert marker in html
