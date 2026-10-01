@@ -38,3 +38,22 @@ def test_upload_filename_is_basename(isolated):
     p=files.safe_upload_path("","../evil.txt")
     assert p.name=="evil.txt"
     assert p.parent==files.storage_root()
+
+
+def test_terminal_rejects_unknown_shell(isolated):
+    import cloud_os.terminal as terminal
+    with pytest.raises(ValueError):
+        terminal.execute("echo test",shell="unknown")
+
+def test_terminal_uses_host_native_shell(isolated,monkeypatch):
+    import cloud_os.terminal as terminal
+    import cloud_os.files as files
+    files.load=lambda:{"storage_root":str(isolated/"storage")}
+    files.storage_root()
+    if os.name=="nt":
+        if not terminal.available_shells(): pytest.skip("PowerShell unavailable")
+        result=terminal.execute("Write-Output cloudos",shell="powershell")
+    else:
+        result=terminal.execute("printf cloudos",shell="bash")
+    assert result["code"]==0
+    assert "cloudos" in result["stdout"]
