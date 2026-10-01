@@ -58,9 +58,10 @@ $SUDO ln -sf "$DIR/.venv/bin/cloud-os" /usr/local/bin/cloud-os
 step "Running setup"
 cloud-os setup
 
-step "Startup service"
-printf '[WARN] Automatic system service installation is disabled in this development build.\n'
-printf '[WARN] This prevents the web terminal from accidentally running as root. Use: cloud-os start\n'
+step "Startup behavior"
+printf '[INFO] Linux system-wide autostart is not enabled by this development installer.\n'
+printf '[INFO] Run Cloud OS as the configured user with: cloud-os start\n'
+printf '[INFO] Do not run the web terminal as root.\n'
 
 step "Verifying installation"
 cloud-os doctor
