@@ -5,7 +5,7 @@ from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from .auth import login,logout,allowed,identity,login_allowed,note_login_failure,clear_login_failures,verify,hash_password,revoke_user,change_admin_password
 from .files import safe_path,safe_upload_path,list_items
-from .terminal import execute,available_shells
+from .terminal import execute,available_shells,create_session,close_session
 from .backup import create_backup,list_backups
 from .doctor import report
 from .integrations import status as integration_status
@@ -24,7 +24,7 @@ class Login(BaseModel): password:str; username:str="admin"
 class UserCreate(BaseModel): username:str; password:str; display_name:str=""; role:str="member"
 class TeamCreate(BaseModel): name:str
 class MemberChange(BaseModel): username:str; role:str="member"
-class Command(BaseModel): command:str; shell:str|None=None; privileged:bool=False
+class Command(BaseModel): command:str; shell:str|None=None; privileged:bool=False; session_id:str|None=None\nclass TerminalSession(BaseModel): shell:str|None=None
 class PathBody(BaseModel): path:str
 class FileCreate(BaseModel): path:str; content:str=""
 class RenameBody(BaseModel): path:str; new_name:str
@@ -189,7 +189,7 @@ def terminal_shells(req:Request):
 def terminal(body:Command,req:Request):
  user=require(req,"terminal")
  if body.privileged and user.get("role") not in ("owner","admin"): fail(403,"TERM-003")
- try:r=execute(body.command,shell=body.shell,privileged=body.privileged)
+ try:r=execute(body.command,shell=body.shell,privileged=body.privileged,session_id=body.session_id)
  except subprocess.TimeoutExpired: fail(408,"TERM-002")
  except PermissionError as e: fail(403,"TERM-003",str(e))
  except ValueError as e: fail(400,"TERM-001",str(e))
