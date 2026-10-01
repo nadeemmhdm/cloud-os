@@ -1,35 +1,65 @@
 # Installation
 
-## Requirements
-- Windows 10/11 or a supported Linux distribution
-- Python 3.10+
-- Git
-- Administrator/root privileges for system-service installation
+Cloud OS includes prerequisite checks so a fresh supported machine needs as little manual setup as possible.
 
-## Windows
-Open PowerShell as Administrator:
+## Requirements handled by the installer
+
+- Python 3.10+ (Windows installer installs Python 3.12 when needed)
+- pip
+- Git
+- Python application dependencies from `pyproject.toml`
+- Linux virtual environment
+- service setup where supported
+
+Administrator/root permission and Internet access are required during installation.
+
+## Windows 10/11
+
+Open PowerShell **as Administrator**:
 
 ```powershell
 irm https://raw.githubusercontent.com/nadeemmhdm/cloud-os/main/install.ps1 | iex
 ```
 
+The installer checks prerequisites, uses `winget` to install missing Git/Python, installs Cloud OS, runs setup and diagnostics, and prints a readable error code plus a suggested fix when a step fails.
+
+> Windows automatic service registration is not yet implemented. The installer will warn instead of treating this as a failed Cloud OS installation. Start with `cloud-os start`.
+
 ## Linux
+
 ```bash
 curl -fsSL https://raw.githubusercontent.com/nadeemmhdm/cloud-os/main/install.sh | bash
 ```
 
-Cloud Os stores persistent configuration under its application data directory. Normal shutdown and reboot should not require repeating application configuration.
+Debian/Ubuntu (`apt`) and Fedora-family (`dnf`) prerequisite installation is supported. Cloud OS is installed into an isolated virtual environment under `/opt/cloud-os/.venv`.
 
-> The installers and platform autostart flow are still being hardened and require end-to-end validation before production use.
+## Everyday commands
 
-## Manual development run
-```bash
-git clone https://github.com/nadeemmhdm/cloud-os.git
-cd cloud-os
-python -m venv .venv
-pip install -e .
-cloud-os setup
+```text
 cloud-os start
+cloud-os status
+cloud-os doctor
+cloud-os version
+cloud-os update-check
+cloud-os update
 ```
 
-Run `cloud-os doctor` for diagnostics.
+## Updates
+
+`cloud-os update-check` compares the installed package version with the latest GitHub Release. `cloud-os update` installs the latest release. Developers can explicitly update from the main branch with:
+
+```bash
+cloud-os update --source main
+```
+
+If no GitHub Release exists yet, the CLI explains that clearly instead of showing an unhandled traceback.
+
+## Troubleshooting
+
+Run:
+
+```bash
+cloud-os doctor
+```
+
+Installer failures use codes such as `I001` and updater failures use `U001`. The message includes the failed operation and, when possible, a direct recovery step.
