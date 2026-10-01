@@ -52,6 +52,7 @@ def require(req:Request,permission:str|None=None):
 
 @router.post("/login")
 def do_login(body:Login,request:Request,response:Response):
+ _same_origin(request)
  key=f"{request.client.host if request.client else 'unknown'}:{body.username}"
  if not login_allowed(key): fail(429,"AUTH-002")
  t=login(body.password,body.username)
@@ -65,6 +66,7 @@ def do_login(body:Login,request:Request,response:Response):
 
 @router.post("/logout")
 def do_logout(req:Request,response:Response):
+ _same_origin(req)
  logout(token(req)); response.delete_cookie("cloudos_session",path="/"); return {"ok":True}
 
 @router.get("/files")
