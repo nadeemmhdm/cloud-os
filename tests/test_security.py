@@ -160,7 +160,7 @@ def test_dashboard_has_functional_management_controls():
     from pathlib import Path
     import cloud_os
     html=Path(cloud_os.__file__).with_name("dashboard.html").read_text(encoding="utf-8")
-    for marker in ("Upload file","New folder","Create backup","Add user","Create team","Host terminal"):
+    for marker in ("Upload file","New folder","Create backup","Add user","Create team","Server terminal"):
         assert marker in html
 
 def test_server_csp_allows_embedded_logo():
