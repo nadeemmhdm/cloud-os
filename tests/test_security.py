@@ -187,3 +187,17 @@ def test_dashboard_realtime_and_account_admin_controls():
     html=Path(cloud_os.__file__).with_name("dashboard.html").read_text(encoding="utf-8")
     for marker in ("live update every 2s","Reset password","Unblock","Change password","First login:","Last login:"):
         assert marker in html
+
+
+def test_dashboard_about_ai_and_copy_features():
+    from pathlib import Path
+    import cloud_os
+    html=Path(cloud_os.__file__).with_name("dashboard.html").read_text(encoding="utf-8")
+    for marker in ("About Cloud OS","AI Configuration","Copy all","Cloud OS built by <b>Nadeem</b>","chatFab","/api/system/details"):
+        assert marker in html
+
+def test_system_details_endpoint_requires_auth():
+    import inspect
+    import cloud_os.server as server
+    source=inspect.getsource(server.system_details)
+    assert "require(req)" in source
