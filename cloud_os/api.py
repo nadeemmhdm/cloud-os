@@ -5,7 +5,7 @@ from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from .auth import login,logout,allowed,identity,login_allowed,note_login_failure,clear_login_failures
 from .files import safe_path,safe_upload_path,list_items
-from .terminal import execute
+from .terminal import execute,available_shells
 from .backup import create_backup,list_backups
 from .doctor import report
 from .integrations import status as integration_status
@@ -20,7 +20,7 @@ class Login(BaseModel): password:str; username:str="admin"
 class UserCreate(BaseModel): username:str; password:str; display_name:str=""; role:str="member"
 class TeamCreate(BaseModel): name:str
 class MemberChange(BaseModel): username:str; role:str="member"
-class Command(BaseModel): command:str
+class Command(BaseModel): command:str; shell:str|None=None
 class PathBody(BaseModel): path:str
 
 def token(req:Request): return req.cookies.get("cloudos_session","")
@@ -98,10 +98,14 @@ def download(path:str,req:Request):
  if not p.is_file(): raise HTTPException(404,"File not found")
  return FileResponse(p,filename=p.name)
 
+@router.get("/terminal/shells")
+def terminal_shells(req:Request):
+ require(req,"terminal"); return {"shells":available_shells()}
+
 @router.post("/terminal")
 def terminal(body:Command,req:Request):
  user=require(req,"terminal")
- try:r=execute(body.command)
+ try:r=execute(body.command,shell=body.shell)
  except Exception as e: raise HTTPException(400,str(e))
  record("terminal.command",f"{user['username']}:{body.command[:200]}"); return r
 
