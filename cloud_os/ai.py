@@ -33,6 +33,10 @@ def _credential(provider):
  return key,model
 def status():
  return {p:{"configured":bool(_credential(p)[0]),"model":_credential(p)[1]} for p in PROVIDERS}
+def active_provider():
+ for provider in PROVIDERS:
+  if _credential(provider)[0]: return provider
+ return None
 def _post(url,headers,data):
  req=urllib.request.Request(url,data=json.dumps(data).encode(),headers={"Content-Type":"application/json",**headers},method="POST")
  try:
