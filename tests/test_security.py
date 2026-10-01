@@ -264,3 +264,10 @@ def test_terminal_session_persists_working_directory(isolated):
         r=terminal.execute("cd child",shell="bash",session_id=s["session_id"])
     assert Path(r["cwd"]).name=="child"
     terminal.close_session(s["session_id"])
+
+
+def test_ssh_admin_policy_is_role_based():
+    import cloud_os.ssh_gateway as ssh
+    assert ssh._is_admin({"role":"admin","permissions":["terminal"]})
+    assert ssh._is_admin({"role":"owner","permissions":["*"]})
+    assert not ssh._is_admin({"role":"operator","permissions":["terminal"]})
