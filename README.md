@@ -60,6 +60,7 @@ See [Teams and Access Control](docs/TEAMS.md).
 - [Security Architecture](docs/SECURITY.md)
 - [Teams and RBAC](docs/TEAMS.md)
 - [Troubleshooting](docs/TROUBLESHOOTING.md)
+- [Error Codes](docs/ERROR_CODES.md)
 - [Updates and Rollback](docs/UPDATES.md)
 - [Roadmap](docs/ROADMAP.md)
 - [Security Policy](SECURITY.md)
