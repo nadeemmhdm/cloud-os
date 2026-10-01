@@ -192,6 +192,21 @@ def download(path:str,req:Request):
 def terminal_shells(req:Request):
  require(req,"terminal"); return {"shells":available_shells()}
 
+@router.post("/terminal/session")
+def terminal_session(body:TerminalSession,req:Request):
+ user=require(req,"terminal")
+ try:r=create_session(body.shell)
+ except ValueError as e: fail(400,"TERM-001",str(e))
+ record("terminal.session.open",f"{user['username']}:shell={r['shell']}")
+ return r
+
+@router.delete("/terminal/session/{session_id}")
+def terminal_session_close(session_id:str,req:Request):
+ user=require(req,"terminal")
+ if not close_session(session_id): fail(404,"TERM-001","Terminal session was not found or already closed")
+ record("terminal.session.close",user["username"])
+ return {"ok":True}
+
 @router.post("/terminal")
 def terminal(body:Command,req:Request):
  user=require(req,"terminal")

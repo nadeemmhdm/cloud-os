@@ -309,3 +309,23 @@ def test_dashboard_sidebar_icons_compact_profile_and_local_ip():
     for marker in ('class="navico"','accountProfile','roleBadge','logoutIcon','Local IP','contentIn'):
         assert marker in html
     assert '"ip_addresses":ips' in inspect.getsource(server.system_details)
+
+
+def test_terminal_session_routes_exist_and_require_terminal_permission():
+    import inspect
+    import cloud_os.api as api
+    opened=inspect.getsource(api.terminal_session)
+    closed=inspect.getsource(api.terminal_session_close)
+    assert 'require(req,"terminal")' in opened
+    assert "create_session" in opened
+    assert 'require(req,"terminal")' in closed
+    assert "close_session" in closed
+
+
+def test_dashboard_ai_has_animated_icon_and_http_errors_are_visible():
+    from pathlib import Path
+    import cloud_os
+    html=Path(cloud_os.__file__).with_name("dashboard.html").read_text(encoding="utf-8")
+    for marker in ("aiCore","aiSpark","@keyframes aiPulse","HTTP-"):
+        assert marker in html
+    assert '>AI</button>' not in html
