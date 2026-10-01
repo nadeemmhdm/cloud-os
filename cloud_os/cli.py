@@ -17,6 +17,7 @@ import uvicorn
 from .config import load, save
 from .doctor import report
 from .runtime import prepare_integrations
+from .auth import ensure_admin
 
 app = typer.Typer(no_args_is_help=True, help="Cloud OS management CLI")
 REPO = "nadeemmhdm/cloud-os"
@@ -78,6 +79,13 @@ def setup(port: int = 8765, ssh: bool = True):
     cfg["port"] = port
     cfg["ssh_enabled"] = ssh
     save(cfg)
+    if not cfg.get("admin_password_hash"):
+        typer.echo("Create the Cloud OS owner password (minimum 12 characters).")
+        password = typer.prompt("Owner password", hide_input=True, confirmation_prompt=True)
+        try:
+            ensure_admin(password)
+        except ValueError as exc:
+            _fail("S001", str(exc), "Run 'cloud-os setup' again and choose a stronger password.")
     _ok("Cloud OS configuration saved.")
 
 
