@@ -1,5 +1,5 @@
 from __future__ import annotations
-import shutil
+import shutil,subprocess
 from fastapi import APIRouter,HTTPException,Request,Response,UploadFile,File
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
@@ -107,7 +107,8 @@ def terminal(body:Command,req:Request):
  user=require(req,"terminal")
  if body.privileged and user.get("role") not in ("owner","admin"): raise HTTPException(403,"Privileged terminal requires Owner or Admin role")
  try:r=execute(body.command,shell=body.shell,privileged=body.privileged)
- except Exception as e: raise HTTPException(400,str(e))
+ except subprocess.TimeoutExpired: raise HTTPException(408,"Command timed out")
+ except (ValueError,PermissionError) as e: raise HTTPException(400,str(e))
  record("terminal.command",f"{user['username']}:privileged={body.privileged}:shell={body.shell or 'host-default'}:code={r.get('code')}:{body.command[:200]}"); return r
 
 @router.post("/backup")
