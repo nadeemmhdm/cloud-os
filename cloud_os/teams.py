@@ -57,7 +57,8 @@ def note_login(username):
  d=_load(); u=d["users"].get(username)
  if not u:return
  now=datetime.now(timezone.utc).isoformat()
- u.setdefault("first_login_at",now); u["last_login_at"]=now; _save(d)
+ if not u.get("first_login_at"): u["first_login_at"]=now
+ u["last_login_at"]=now; _save(d)
 
 def set_password(username,password):
  d=_load()
