@@ -1,5 +1,6 @@
 from __future__ import annotations
 import json,re,secrets
+from datetime import datetime,timezone
 from .config import APP_DIR
 from .auth import hash_password,verify
 
@@ -43,14 +44,30 @@ def create_user(username,password,display_name="",role="member"):
  if role not in DEFAULT_ROLES or role=="owner": raise ValueError("Invalid role")
  d=_load()
  if username in d["users"]: raise ValueError("User already exists")
- d["users"][username]={"id":secrets.token_hex(8),"display_name":(display_name or username)[:128],"password_hash":hash_password(password),"role":role,"disabled":False}
+ d["users"][username]={"id":secrets.token_hex(8),"display_name":(display_name or username)[:128],"password_hash":hash_password(password),"role":role,"disabled":False,"created_at":datetime.now(timezone.utc).isoformat(),"first_login_at":None,"last_login_at":None}
  _save(d); return public_user(username,d["users"][username])
 
 def authenticate(username,password):
  u=_load()["users"].get(username)
  return u if u and not u.get("disabled") and verify(password,u["password_hash"]) else None
 
-def public_user(name,u): return {"username":name,"id":u["id"],"display_name":u.get("display_name",name),"role":u.get("role","member"),"disabled":u.get("disabled",False)}
+def public_user(name,u): return {"username":name,"id":u["id"],"display_name":u.get("display_name",name),"role":u.get("role","member"),"disabled":u.get("disabled",False),"created_at":u.get("created_at"),"first_login_at":u.get("first_login_at"),"last_login_at":u.get("last_login_at")}
+
+def note_login(username):
+ d=_load(); u=d["users"].get(username)
+ if not u:return
+ now=datetime.now(timezone.utc).isoformat()
+ u.setdefault("first_login_at",now); u["last_login_at"]=now; _save(d)
+
+def set_password(username,password):
+ d=_load()
+ if username not in d["users"]: raise ValueError("Unknown user")
+ d["users"][username]["password_hash"]=hash_password(password); _save(d)
+
+def set_disabled(username,disabled):
+ d=_load()
+ if username not in d["users"]: raise ValueError("Unknown user")
+ d["users"][username]["disabled"]=bool(disabled); _save(d)
 def users(): return [public_user(n,u) for n,u in _load()["users"].items()]
 
 def create_team(name):
