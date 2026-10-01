@@ -13,6 +13,8 @@ from .audit import record,recent
 from .teams import create_user,users,create_team,teams,add_member,remove_member
 from .config import load
 from .errors import payload
+from .ai import status as ai_status,configure as ai_configure,remove as ai_remove,help_answer
+from .booster import status as booster_status,boost as booster_enable,normal as booster_normal
 
 router=APIRouter(prefix="/api")
 MAX_UPLOAD=1024*1024*1024
@@ -23,6 +25,9 @@ class TeamCreate(BaseModel): name:str
 class MemberChange(BaseModel): username:str; role:str="member"
 class Command(BaseModel): command:str; shell:str|None=None; privileged:bool=False
 class PathBody(BaseModel): path:str
+class AIConfig(BaseModel): provider:str; api_key:str; model:str=""
+class AIAsk(BaseModel): provider:str; prompt:str
+class BoostBody(BaseModel): enabled:bool=True
 
 def token(req:Request): return req.cookies.get("cloudos_session","")
 
@@ -166,3 +171,42 @@ def team_remove(team:str,username:str,req:Request):
  try:remove_member(team,username)
  except ValueError as e: fail(400,"TEAM-001",str(e))
  record("team.member.remove",team+":"+username); return {"ok":True}
+
+@router.get("/ai/status")
+def get_ai_status(req:Request):
+ require(req,"settings"); return ai_status()
+
+@router.post("/ai/configure")
+def set_ai(body:AIConfig,req:Request):
+ user=require(req,"settings")
+ try:r=ai_configure(body.provider,body.api_key,body.model)
+ except ValueError as e: fail(400,"AI-001",str(e))
+ record("ai.configure",f"{user['username']}:{body.provider}"); return r
+
+@router.delete("/ai/{provider}")
+def delete_ai(provider:str,req:Request):
+ user=require(req,"settings")
+ try:r=ai_remove(provider)
+ except ValueError as e: fail(400,"AI-001",str(e))
+ record("ai.remove",f"{user['username']}:{provider}"); return r
+
+@router.post("/ai/help")
+def ai_help(body:AIAsk,req:Request):
+ user=require(req)
+ if len(body.prompt)>8000: fail(400,"AI-002","Prompt is too long")
+ try:answer=help_answer(body.provider,body.prompt)
+ except ValueError as e: fail(400,"AI-001",str(e))
+ except RuntimeError as e: fail(502,"AI-003",str(e))
+ record("ai.help",f"{user['username']}:{body.provider}:chars={len(body.prompt)}")
+ return {"answer":answer,"provider":body.provider}
+
+@router.get("/booster")
+def get_booster(req:Request):
+ require(req,"settings"); return booster_status()
+
+@router.post("/booster")
+def set_booster(body:BoostBody,req:Request):
+ user=require(req,"settings")
+ r=booster_enable() if body.enabled else booster_normal()
+ record("booster.change",f"{user['username']}:enabled={body.enabled}:applied={r.get('applied',False)}")
+ return r
