@@ -1,4 +1,4 @@
-import platform,time
+import platform,time,shutil,subprocess,os
 import psutil
 from fastapi import FastAPI,Request
 from fastapi.responses import HTMLResponse
@@ -28,6 +28,46 @@ def system(req:Request):
  require(req)
  d=psutil.disk_usage("/")
  return {"cpu":psutil.cpu_percent(),"ram":psutil.virtual_memory().percent,"disk":d.percent,"uptime":int(time.time()-BOOT),"platform":platform.system(),"version":__version__}
+
+
+@app.get("/api/system/details")
+def system_details(req:Request):
+ require(req)
+ vm=psutil.virtual_memory()
+ drives=[]
+ try:
+  for p in psutil.disk_partitions(all=False):
+   try:
+    u=psutil.disk_usage(p.mountpoint)
+    drives.append({"device":p.device,"mount":p.mountpoint,"total":u.total,"used":u.used,"free":u.free})
+   except (PermissionError,OSError): pass
+ except Exception: pass
+ gpu="Unavailable"
+ try:
+  if os.name=="nt":
+   r=subprocess.run(["powershell","-NoLogo","-NoProfile","-NonInteractive","-Command","(Get-CimInstance Win32_VideoController | Select-Object -ExpandProperty Name) -join ', '"],capture_output=True,text=True,timeout=5,shell=False)
+   if r.returncode==0 and r.stdout.strip(): gpu=r.stdout.strip()
+  elif shutil.which("lspci"):
+   r=subprocess.run(["lspci"],capture_output=True,text=True,timeout=5,shell=False)
+   names=[x.split(":",2)[-1].strip() for x in r.stdout.splitlines() if any(k in x.lower() for k in ("vga compatible controller","3d controller","display controller"))]
+   if names: gpu=", ".join(names)
+ except Exception: pass
+ return {
+  "system_name":platform.node() or "Unknown",
+  "os":platform.system(),
+  "os_release":platform.release(),
+  "os_version":platform.version(),
+  "architecture":platform.machine(),
+  "processor":platform.processor() or "Unknown",
+  "cpu_physical_cores":psutil.cpu_count(logical=False),
+  "cpu_logical_cores":psutil.cpu_count(logical=True),
+  "ram_total":vm.total,
+  "ram_available":vm.available,
+  "graphics":gpu,
+  "python":platform.python_version(),
+  "cloud_os_version":__version__,
+  "drives":drives
+}
 
 @app.get("/",response_class=HTMLResponse)
 def dashboard():
