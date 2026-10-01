@@ -100,3 +100,22 @@ def test_audit_detail_is_bounded(isolated):
     audit.record("test","x"*10000)
     rows=audit.recent()
     assert len(rows[-1]["detail"])==4096
+
+
+def test_error_catalog_has_unique_codes():
+    import cloud_os.errors as errors
+    codes=[x.code for x in errors.ERRORS.values()]
+    assert len(codes)==len(set(codes))
+    assert all(code==key for key,code in zip(errors.ERRORS.keys(),codes))
+
+def test_error_payload_is_stable():
+    from cloud_os.errors import payload
+    p=payload("AUTH-001")
+    assert p["error"]["code"]=="AUTH-001"
+    assert "message" in p["error"]
+    assert "suggestion" in p["error"]
+
+def test_error_detail_is_bounded():
+    from cloud_os.errors import payload
+    p=payload("SYS-001","x"*5000)
+    assert len(p["error"]["detail"])==500
