@@ -66,9 +66,14 @@ Step "Running first-time setup"
 & $Python -m cloud_os.cli setup
 if ($LASTEXITCODE -ne 0) { Fail "I010" "Cloud OS setup failed." "Run '$Python -m cloud_os.cli doctor'." }
 
-Step "Installing startup service"
-& $Python -m cloud_os.cli install-service
-if ($LASTEXITCODE -ne 0) { Write-Host "[WARN] Automatic startup could not be enabled. Cloud OS can still be started manually." -ForegroundColor Yellow }
+Step "Configuring automatic startup for the current Windows account"
+$PythonExe = & $Python -c "import sys; print(sys.executable)"
+$Action = New-ScheduledTaskAction -Execute $PythonExe -Argument "-m cloud_os.cli start"
+$Trigger = New-ScheduledTaskTrigger -AtLogOn -User $env:USERNAME
+$Settings = New-ScheduledTaskSettingsSet -RestartCount 5 -RestartInterval (New-TimeSpan -Minutes 1) -StartWhenAvailable
+Register-ScheduledTask -TaskName "CloudOs" -Action $Action -Trigger $Trigger -Settings $Settings -Description "Start Cloud OS automatically" -Force | Out-Null
+Start-ScheduledTask -TaskName "CloudOs"
+Write-Host "[OK] Cloud OS startup task registered." -ForegroundColor Green
 
 Step "Verifying installation"
 & $Python -m cloud_os.cli doctor
