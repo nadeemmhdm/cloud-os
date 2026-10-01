@@ -231,3 +231,20 @@ def test_dashboard_logo_route_exists():
     import inspect
     import cloud_os.server as server
     assert "cloud-os-logo.svg" in inspect.getsource(server.cloud_os_logo)
+
+
+def test_cloud_ssh_gateway_is_isolated():
+    import inspect
+    import cloud_os.ssh_gateway as ssh
+    source=inspect.getsource(ssh)
+    assert "subprocess" not in source
+    assert "os.system" not in source
+    assert "create_server" in source
+    assert "safe_path" in source
+    assert "process_factory=_shell" in source
+    assert "sftp_factory=" not in source
+
+def test_cloud_ssh_defaults_to_separate_port():
+    import cloud_os.config as config
+    assert config.DEFAULTS["ssh_port"]==2222
+    assert config.DEFAULTS["ssh_enabled"] is True
