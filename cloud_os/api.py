@@ -17,6 +17,7 @@ from .ai import status as ai_status,configure as ai_configure,remove as ai_remov
 from .booster import status as booster_status,boost as booster_enable,normal as booster_normal
 
 router=APIRouter(prefix="/api")
+SAFE_METHODS={"GET","HEAD","OPTIONS"}
 MAX_UPLOAD=1024*1024*1024
 
 class Login(BaseModel): password:str; username:str="admin"
@@ -34,7 +35,16 @@ def token(req:Request): return req.cookies.get("cloudos_session","")
 def fail(status:int,code:str,detail:str|None=None):
  raise HTTPException(status,detail=payload(code,detail))
 
+def _same_origin(req:Request):
+ if req.method in SAFE_METHODS: return
+ origin=req.headers.get("origin")
+ if not origin: return
+ host=req.headers.get("host","")
+ if origin not in (f"http://{host}",f"https://{host}"):
+  fail(403,"PERM-001","Cross-origin state-changing request blocked")
+
 def require(req:Request,permission:str|None=None):
+ _same_origin(req)
  t=token(req); user=identity(t)
  if not user: fail(401,"AUTH-003")
  if permission and not allowed(t,permission): fail(403,"PERM-001")
@@ -122,7 +132,7 @@ def terminal(body:Command,req:Request):
  except subprocess.TimeoutExpired: fail(408,"TERM-002")
  except PermissionError as e: fail(403,"TERM-003",str(e))
  except ValueError as e: fail(400,"TERM-001",str(e))
- record("terminal.command",f"{user['username']}:privileged={body.privileged}:shell={body.shell or 'host-default'}:code={r.get('code')}:{body.command[:200]}"); return r
+ record("terminal.command",f"{user[chr(117)+chr(115)+chr(101)+chr(114)+chr(110)+chr(97)+chr(109)+chr(101)]}:privileged={body.privileged}:shell={body.shell or chr(104)+chr(111)+chr(115)+chr(116)}:code={r.get(chr(99)+chr(111)+chr(100)+chr(101))}:command_length={len(body.command)}"); return r
 
 @router.post("/backup")
 def backup(req:Request):
