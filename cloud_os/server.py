@@ -52,8 +52,15 @@ def system_details(req:Request):
    names=[x.split(":",2)[-1].strip() for x in r.stdout.splitlines() if any(k in x.lower() for k in ("vga compatible controller","3d controller","display controller"))]
    if names: gpu=", ".join(names)
  except Exception: pass
+ ips=[]
+ try:
+  for info in socket.getaddrinfo(socket.gethostname(),None,socket.AF_INET):
+   ip=info[4][0]
+   if ip and not ip.startswith("127.") and ip not in ips: ips.append(ip)
+ except OSError: pass
  return {
   "system_name":platform.node() or "Unknown",
+  "ip_addresses":ips,
   "os":platform.system(),
   "os_release":platform.release(),
   "os_version":platform.version(),

@@ -299,3 +299,13 @@ def test_integration_status_exposes_safe_cloudflare_origins(isolated,monkeypatch
     assert s["ssh"]["cloudflare_origin"]=="ssh://127.0.0.1:2222"
     assert s["cloudflare"]["web_origin"]=="http://127.0.0.1:8765"
     assert s["cloudflare"]["ssh_client_proxy"]=="cloudflared access ssh --hostname %h"
+
+
+def test_dashboard_sidebar_icons_compact_profile_and_local_ip():
+    from pathlib import Path
+    import inspect
+    import cloud_os, cloud_os.server as server
+    html=Path(cloud_os.__file__).with_name("dashboard.html").read_text(encoding="utf-8")
+    for marker in ('class="navico"','accountProfile','roleBadge','logoutIcon','Local IP','contentIn'):
+        assert marker in html
+    assert '"ip_addresses":ips' in inspect.getsource(server.system_details)
