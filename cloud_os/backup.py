@@ -14,3 +14,16 @@ def create_backup():
 def list_backups():
     p=APP_DIR/"backups"
     return [] if not p.exists() else [x.name for x in sorted(p.iterdir(),reverse=True) if x.is_dir()]
+
+def delete_backup(name):
+    if not isinstance(name,str) or not name or Path(name).name!=name or name in (".",".."):
+        raise ValueError("Invalid backup name")
+    base=(APP_DIR/"backups").resolve()
+    items=[x for x in sorted(base.iterdir(),reverse=True) if x.is_dir()] if base.exists() else []
+    if not items: raise FileNotFoundError("Backup not found")
+    target=(base/name).resolve()
+    if target.parent!=base or target not in items: raise FileNotFoundError("Backup not found")
+    if len(items)==1: raise ValueError("The last remaining backup cannot be deleted")
+    if target==items[0]: raise ValueError("The latest backup cannot be deleted")
+    shutil.rmtree(target)
+    return name

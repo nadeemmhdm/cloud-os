@@ -6,7 +6,7 @@ from pydantic import BaseModel
 from .auth import login,logout,allowed,identity,login_allowed,note_login_failure,clear_login_failures,verify,hash_password,revoke_user,change_admin_password
 from .files import safe_path,safe_upload_path,list_items
 from .terminal import execute,available_shells,create_session,close_session
-from .backup import create_backup,list_backups
+from .backup import create_backup,list_backups,delete_backup
 from .doctor import report
 from .integrations import status as integration_status
 from .audit import record,recent
@@ -226,6 +226,15 @@ def backup(req:Request):
 
 @router.get("/backups")
 def backups(req:Request): require(req,"backups"); return list_backups()
+
+@router.delete("/backups/{name}")
+def backup_delete(name:str,req:Request):
+ user=require(req,"backups")
+ try:deleted=delete_backup(name)
+ except FileNotFoundError as e: fail(404,"BACKUP-001",str(e))
+ except (ValueError,OSError,shutil.Error) as e: fail(400,"BACKUP-001",str(e))
+ record("backup.delete",f"{user['username']}:{deleted}")
+ return {"deleted":deleted}
 @router.get("/doctor")
 def doctor(req:Request): require(req,"settings"); return report()
 @router.get("/integrations")

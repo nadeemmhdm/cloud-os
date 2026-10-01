@@ -329,3 +329,24 @@ def test_dashboard_ai_has_animated_icon_and_http_errors_are_visible():
     for marker in ("aiCore","aiSpark","@keyframes aiPulse","HTTP-"):
         assert marker in html
     assert '>AI</button>' not in html
+
+
+def test_backup_delete_protects_latest_and_last(isolated,monkeypatch):
+    import cloud_os.backup as backup
+    root=isolated/"backups"; root.mkdir()
+    monkeypatch.setattr(backup,"APP_DIR",isolated)
+    (root/"20260102-new").mkdir(); (root/"20260101-old").mkdir()
+    with pytest.raises(ValueError,match="latest"):
+        backup.delete_backup("20260102-new")
+    assert backup.delete_backup("20260101-old")=="20260101-old"
+    with pytest.raises(ValueError,match="last remaining"):
+        backup.delete_backup("20260102-new")
+
+
+def test_collapsed_sidebar_is_icon_navigation_rail():
+    import cloud_os
+    html=Path(cloud_os.__file__).with_name("dashboard.html").read_text(encoding="utf-8")
+    assert ".app.sideHidden{grid-template-columns:72px 1fr}" in html
+    assert ".app.sideHidden .nav button span" in html
+    assert 'data-delbackup' in html
+    assert "Latest backup · protected" in html
