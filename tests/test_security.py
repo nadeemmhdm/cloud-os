@@ -57,3 +57,22 @@ def test_terminal_uses_host_native_shell(isolated,monkeypatch):
         result=terminal.execute("printf cloudos",shell="bash")
     assert result["code"]==0
     assert "cloudos" in result["stdout"]
+
+
+def test_owner_role_cannot_be_created(isolated):
+    import cloud_os.teams as teams
+    with pytest.raises(ValueError):
+        teams.create_user("secondowner","correct-horse-battery","Second Owner","owner")
+
+def test_owner_role_cannot_be_granted_by_team(isolated):
+    import cloud_os.teams as teams
+    teams.create_user("member1","correct-horse-battery","Member","member")
+    teams.create_team("ops")
+    with pytest.raises(ValueError):
+        teams.add_member("ops","member1","owner")
+
+def test_windows_privileged_terminal_never_bypasses_uac(isolated,monkeypatch):
+    import cloud_os.terminal as terminal
+    monkeypatch.setattr(terminal.os,"name","nt")
+    with pytest.raises(PermissionError):
+        terminal.execute("Write-Output test",shell="powershell",privileged=True)
