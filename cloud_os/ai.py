@@ -3,7 +3,7 @@ import json,os,urllib.request,urllib.error
 from pathlib import Path
 from .config import APP_DIR,_protect
 
-SECRETS=APP_DIR/"ai-secrets.json"
+def _secrets_path(): return APP_DIR/"ai-secrets.json"
 PROVIDERS={
  "ollama":{"env":"OLLAMA_API_KEY","model":"gemma4:31b"},
  "openai":{"env":"OPENAI_API_KEY","model":"gpt-5.4-mini"},
@@ -11,7 +11,7 @@ PROVIDERS={
  "gemini":{"env":"GEMINI_API_KEY","model":"gemini-3.5-flash"},
 }
 def _load():
- try:return json.loads(SECRETS.read_text(encoding="utf-8"))
+ try:return json.loads(_secrets_path().read_text(encoding="utf-8"))
  except (OSError,json.JSONDecodeError):return {}
 def configure(provider,key,model=""):
  if provider not in PROVIDERS: raise ValueError("Unsupported AI provider")
@@ -19,12 +19,12 @@ def configure(provider,key,model=""):
  if not key: raise ValueError("API key is required")
  d=_load(); d[provider]={"key":key,"model":model.strip() or PROVIDERS[provider]["model"]}
  APP_DIR.mkdir(parents=True,exist_ok=True)
- tmp=SECRETS.with_suffix(".tmp"); tmp.write_text(json.dumps(d),encoding="utf-8"); _protect(tmp); tmp.replace(SECRETS); _protect(SECRETS)
+ tmp=_secrets_path().with_suffix(".tmp"); tmp.write_text(json.dumps(d),encoding="utf-8"); _protect(tmp); tmp.replace(_secrets_path()); _protect(_secrets_path())
  return status()
 def remove(provider):
  d=_load(); d.pop(provider,None)
  APP_DIR.mkdir(parents=True,exist_ok=True)
- tmp=SECRETS.with_suffix(".tmp"); tmp.write_text(json.dumps(d),encoding="utf-8"); _protect(tmp); tmp.replace(SECRETS); _protect(SECRETS)
+ tmp=_secrets_path().with_suffix(".tmp"); tmp.write_text(json.dumps(d),encoding="utf-8"); _protect(tmp); tmp.replace(_secrets_path()); _protect(_secrets_path())
  return status()
 def _credential(provider):
  saved=_load().get(provider,{})
@@ -38,9 +38,9 @@ def _post(url,headers,data):
  try:
   with urllib.request.urlopen(req,timeout=45) as r:return json.loads(r.read().decode())
  except urllib.error.HTTPError as e:
-  body=e.read().decode(errors="replace")[:1000]
-  raise RuntimeError(f"Provider HTTP {e.code}: {body}") from e
- except (urllib.error.URLError,TimeoutError) as e: raise RuntimeError(f"Provider connection failed: {e}") from e
+  e.read()
+  raise RuntimeError(f"AI provider returned HTTP {e.code}") from e
+ except (urllib.error.URLError,TimeoutError) as e: raise RuntimeError("AI provider connection failed") from e
 def ask(provider,prompt,system):
  if provider not in PROVIDERS: raise ValueError("Unsupported AI provider")
  key,model=_credential(provider)
