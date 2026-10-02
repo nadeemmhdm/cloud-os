@@ -620,3 +620,14 @@ def test_windows_update_is_deferred_until_managed_server_stops():
     assert "pip check" in helper
     update=inspect.getsource(cli.update)
     assert "_windows_deferred_update(target,old,old_ref)" in update
+
+
+def test_windows_staging_occurs_outside_update_rollback_handler():
+    import inspect, cloud_os.cli as cli
+    src=inspect.getsource(cli.update)
+    stage=src.index('if os.name=="nt": _windows_deferred_update')
+    rollback_try=src.index('try:',stage)
+    assert stage < rollback_try
+    helper=inspect.getsource(cli._windows_deferred_update)
+    assert "Get-Process -Name 'cloud-os'" in helper
+    assert "still running" in helper
