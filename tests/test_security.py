@@ -608,3 +608,15 @@ def test_windows_safe_updater_does_not_upgrade_loaded_dependencies():
     assert '"--no-deps"' in update_src
     verify_src=inspect.getsource(cli._verify_runtime_dependencies)
     assert '"check"' in verify_src
+
+
+def test_windows_update_is_deferred_until_managed_server_stops():
+    import inspect, cloud_os.cli as cli
+    helper=inspect.getsource(cli._windows_deferred_update)
+    assert "Wait-Process" in helper
+    assert "Stop-ScheduledTask" in helper
+    assert "Start-ScheduledTask" in helper
+    assert "--no-deps" in helper
+    assert "pip check" in helper
+    update=inspect.getsource(cli.update)
+    assert "_windows_deferred_update(target,old,old_ref)" in update
