@@ -187,6 +187,30 @@ def update(source: str = typer.Option("release", help="release or main")):
     typer.secho("\n[SUCCESS] Cloud OS updated successfully.",fg=typer.colors.GREEN,bold=True)
     typer.echo(f"Version: {current} -> {installed}"); typer.echo(f"Revision: {old[:12]} -> {new[:12]}"); typer.echo(f"Channel: {source}"); typer.echo("Next: cloud-os doctor")
 
+@app.command()
+def uninstall(
+    yes: bool = typer.Option(False,"--yes","-y",help="Skip confirmation"),
+    purge_data: bool = typer.Option(False,"--purge-data",help="Also remove Cloud OS configuration, backups and configured storage"),
+):
+    """Uninstall Cloud OS; preserve user data unless purge is explicitly requested."""
+    if not yes:
+        typer.secho("Cloud OS program files will be removed. Data is preserved by default.",fg=typer.colors.YELLOW)
+        if not typer.confirm("Continue?"): raise typer.Abort()
+    _step("Removing automatic startup")
+    if os.name=="nt": _run(["schtasks","/Delete","/TN","CloudOs","/F"],check=False)
+    else: _run(["systemctl","--user","disable","--now","cloud-os.service"],check=False)
+    _done("Automatic startup removed")
+    cfg=load(); data_dir=Path(os.getenv("CLOUD_OS_HOME",Path.home()/".cloud-os")); storage=Path(str(cfg.get("storage_root",Path.home()/"CloudOsStorage"))).expanduser()
+    _step("Removing installed package")
+    _run([sys.executable,"-m","pip","uninstall","-y","cloud-os"],check=False); _done("Installed package removed")
+    if purge_data:
+        if data_dir.exists(): shutil.rmtree(data_dir,ignore_errors=True)
+        if storage.exists() and storage.is_dir(): shutil.rmtree(storage,ignore_errors=True)
+        _done("Configuration, backups and configured storage removed")
+    else:
+        typer.echo(f"Preserved state/backups: {data_dir}"); typer.echo(f"Preserved storage: {storage}")
+    typer.secho("[SUCCESS] Cloud OS uninstall completed.",fg=typer.colors.GREEN)
+
 
 if __name__ == "__main__":
     app()
