@@ -207,7 +207,7 @@ def test_file_editor_and_dashboard_ux_contract():
     from pathlib import Path
     import cloud_os
     html=Path(cloud_os.__file__).with_name("dashboard.html").read_text(encoding="utf-8")
-    for marker in ("New file","data-ren","/api/file/content","sideToggle","modalShade","data-st=\"about\""):
+    for marker in ("New file","data-ren","/api/file/content","brandToggle","modalShade","data-st=\"about\""):
         assert marker in html
     assert "</section>\\n" not in html
 
@@ -488,14 +488,14 @@ def test_cli_update_and_uninstall_security_contract():
     assert "purge_data" in un and "typer.confirm" in un
 
 
-def test_desktop_sidebar_uses_directional_chevron_toggle():
+def test_desktop_sidebar_uses_brand_toggle():
     import cloud_os
     html=Path(cloud_os.__file__).with_name("dashboard.html").read_text(encoding="utf-8")
-    assert 'id="sideToggle"' in html
+    assert 'id="brandToggle"' in html
+    assert 'function toggleSidebar()' in html
     assert 'aria-label="Collapse sidebar"' in html
-    assert 'b.textContent=hidden?">":"<"' in html
-    assert 'id="sideToggle" class="sideToggle" type="button" title="Hide/show sidebar" aria-label="Collapse sidebar" aria-expanded="true">&lt;</button>' in html
-
+    assert 'hidden?"Expand sidebar":"Collapse sidebar"' in html
+    assert '.app.sideHidden .brandmark:after' in html
 
 def test_cloudflare_dashboard_connector_never_exposes_token(isolated,monkeypatch):
     import cloud_os.cloudflare as cf
