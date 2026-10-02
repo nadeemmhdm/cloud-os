@@ -16,6 +16,7 @@ from .errors import payload
 from .ai import status as ai_status,configure as ai_configure,remove as ai_remove,chat_answer
 from .booster import status as booster_status,boost as booster_enable,normal as booster_normal
 from .updater import update_status,check_now
+from .cloudflare import connect as cloudflare_connect,disconnect as cloudflare_disconnect,restart as cloudflare_restart
 
 router=APIRouter(prefix="/api")
 SAFE_METHODS={"GET","HEAD","OPTIONS"}
@@ -43,6 +44,9 @@ class BoostBody(BaseModel): enabled:bool=True
 class PasswordChange(BaseModel): current_password:str; new_password:str
 class AdminPasswordReset(BaseModel): new_password:str
 class AccountState(BaseModel): disabled:bool
+class CloudflareConnect(BaseModel):
+ tunnel_token:str
+ label:str="Existing Cloudflare Tunnel"
 
 def token(req:Request): return req.cookies.get("cloudos_session","")
 
@@ -267,6 +271,27 @@ def backup_delete(name:str,req:Request):
 def doctor(req:Request): require(req,"settings"); return report()
 @router.get("/integrations")
 def integrations(req:Request): require(req,"network"); return integration_status()
+@router.post("/integrations/cloudflare/connect")
+def connect_cloudflare(body:CloudflareConnect,req:Request):
+ user=require(req,"settings")
+ try:r=cloudflare_connect(body.tunnel_token,body.label)
+ except ValueError as e: fail(400,"SYS-001",str(e))
+ except RuntimeError as e: fail(503,"SYS-001",str(e))
+ record("cloudflare.connect",f"{user['username']}:{body.label[:120]}")
+ return r
+
+@router.post("/integrations/cloudflare/restart")
+def restart_cloudflare(req:Request):
+ user=require(req,"settings")
+ try:r=cloudflare_restart()
+ except ValueError as e: fail(400,"SYS-001",str(e))
+ except RuntimeError as e: fail(503,"SYS-001",str(e))
+ record("cloudflare.restart",user["username"]); return r
+
+@router.delete("/integrations/cloudflare")
+def disconnect_cloudflare(req:Request):
+ user=require(req,"settings"); r=cloudflare_disconnect()
+ record("cloudflare.disconnect",user["username"]); return r
 @router.get("/audit")
 def audit(req:Request): require(req,"audit"); return recent()
 @router.get("/me")
