@@ -12,6 +12,6 @@ def start_cloudflare():
     return subprocess.Popen([exe,"tunnel","run",tunnel],stdin=subprocess.DEVNULL,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
 
 def prepare_integrations():
-    # Cloud OS owns this native host-shell SSH gateway. Host sshd is never started.
+    # Cloud OS owns this host-native shell SSH gateway. Host sshd is never started.
     ssh_thread=start_background()
     return {"cloudflare":start_cloudflare(),"ssh":ssh_thread}
