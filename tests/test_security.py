@@ -160,7 +160,7 @@ def test_dashboard_has_functional_management_controls():
     from pathlib import Path
     import cloud_os
     html=Path(cloud_os.__file__).with_name("dashboard.html").read_text(encoding="utf-8")
-    for marker in ("Upload file","New folder","Create backup","Add user","Create team","Server terminal"):
+    for marker in ("Upload file","New folder","Create full backup","Add user","Create team","Server terminal"):
         assert marker in html
 
 def test_server_csp_allows_embedded_logo():
@@ -349,7 +349,7 @@ def test_collapsed_sidebar_is_icon_navigation_rail():
     assert ".app.sideHidden{grid-template-columns:72px 1fr}" in html
     assert ".app.sideHidden .nav button span" in html
     assert 'data-delbackup' in html
-    assert "Latest backup · protected" in html
+    assert "Latest protected" in html
 
 
 def test_overview_has_live_user_clock_date_and_timezone():
@@ -381,3 +381,27 @@ def test_backup_restore_api_and_animated_ui_contract():
     assert 'role") not in ("owner","admin")' in inspect.getsource(api.backup_restore)
     for marker in ("Backup & Restore","Create full backup","data-restore","backupFloat","Integrity verified"):
         assert marker in html
+
+
+def test_login_progressive_cooldown_contract(monkeypatch):
+    import cloud_os.auth as auth
+    auth._ATTEMPTS.clear(); auth._LOCKED_UNTIL.clear()
+    now=[1000.0]; monkeypatch.setattr(auth.time,"time",lambda:now[0])
+    key="account:admin"
+    for _ in range(4): auth.note_login_failure(key)
+    assert auth.login_allowed(key)
+    auth.note_login_failure(key)
+    assert not auth.login_allowed(key)
+    now[0]+=3
+    assert auth.login_allowed(key)
+    auth.clear_login_failures(key)
+
+
+def test_login_autofill_and_independent_throttle_contract():
+    import inspect,cloud_os,cloud_os.api as api
+    src=inspect.getsource(api.do_login)
+    assert 'account_key=f"account:{username.lower()}"' in src
+    assert 'ip_key=f"ip:{ip}"' in src
+    html=Path(cloud_os.__file__).with_name("dashboard.html").read_text(encoding="utf-8")
+    assert 'id="u" value="admin" autocomplete="username"' in html
+    assert 'autocomplete="current-password"' in html
