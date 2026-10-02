@@ -519,3 +519,38 @@ def test_cloudflare_dashboard_setup_wizard_contract():
     html=Path(cloud_os.__file__).with_name("dashboard.html").read_text(encoding="utf-8")
     for marker in ("Connect existing tunnel","Connect Cloudflare Tunnel","Restart connector","/api/integrations/cloudflare/connect","The token stays on this server."):
         assert marker in html
+
+
+def test_owner_recovery_key_is_hashed_and_one_time(isolated,monkeypatch):
+    import cloud_os.auth as auth
+    from cloud_os import config
+    monkeypatch.setattr(config,"APP_DIR",isolated)
+    monkeypatch.setattr(auth,"SECURITY_FILE",isolated/"login-security.json")
+    config.save({})
+    key=auth.create_recovery_key(force=True)
+    stored=config.load()
+    assert key and key not in str(stored)
+    assert stored.get("owner_recovery_hash")
+    assert auth.recover_owner(key,"A-strong-new-password-123") is True
+
+def test_owner_lock_revokes_owner_sessions(isolated,monkeypatch):
+    import cloud_os.auth as auth
+    from cloud_os import config
+    monkeypatch.setattr(config,"APP_DIR",isolated)
+    config.save({})
+    auth.ensure_admin("A-strong-owner-password-123")
+    token=auth.login("A-strong-owner-password-123","admin")
+    assert token and auth.identity(token)
+    auth.set_owner_locked(True,"suspected compromise")
+    assert auth.identity(token) is None
+    assert auth.login("A-strong-owner-password-123","admin") is None
+
+def test_security_center_contract():
+    import inspect, cloud_os.api as ap, cloud_os
+    from pathlib import Path
+    html=Path(cloud_os.__file__).with_name("dashboard.html").read_text(encoding="utf-8")
+    src=inspect.getsource(ap)
+    for marker in ("/security/owner/recovery-key","/security/owner/lock","/recovery/owner"):
+        assert marker in src
+    assert "Forgot password / unlock owner" in html
+    assert "Emergency account lock" in html
