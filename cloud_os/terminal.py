@@ -69,5 +69,5 @@ __CLOUDOS_CWD__%s" "$PWD"; exit $rc'
    cwd=str(Path(candidate).resolve())
    if st:
     with _LOCK:st["cwd"]=cwd
-  out=visible.rstrip("\\r\\n")+"\\n" if visible else ""
+  out=visible.rstrip("\r\n")+"\n" if visible else ""
  return {"code":proc.returncode,"stdout":out[-MAX_OUTPUT:],"stderr":proc.stderr[-MAX_OUTPUT:],"shell":shell,"privileged":bool(privileged),"session_id":session_id,"cwd":cwd}
