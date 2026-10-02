@@ -57,6 +57,10 @@ def fail(status:int,code:str,detail:str|None=None):
 
 def _same_origin(req:Request):
  if req.method in SAFE_METHODS: return
+ # Modern browsers expose fetch provenance even when Origin is absent.
+ fetch_site=(req.headers.get("sec-fetch-site") or "").lower()
+ if fetch_site=="cross-site":
+  fail(403,"PERM-001","Cross-site state-changing request blocked")
  origin=req.headers.get("origin")
  if not origin: return
  host=req.headers.get("host","")
