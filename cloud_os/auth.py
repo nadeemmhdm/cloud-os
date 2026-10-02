@@ -6,8 +6,13 @@ from .config import load,save
 
 SESSIONS={}
 _ATTEMPTS=defaultdict(deque)
-WINDOW=300
-MAX_ATTEMPTS=8
+_LOCKED_UNTIL={}
+WINDOW=900
+LOCK_THRESHOLD=5
+MAX_LOCK_SECONDS=900
+
+def _cooldown_seconds(failures):
+ return min(MAX_LOCK_SECONDS,2 ** max(1,failures-4))
 
 def hash_password(password,salt=None):
  if not isinstance(password,str) or len(password)<12:
@@ -29,15 +34,21 @@ def ensure_admin(password):
   cfg["admin_password_hash"]=hash_password(password); save(cfg)
 
 def login_allowed(key):
- now=time.time(); q=_ATTEMPTS[key]
+ now=time.time()
+ if _LOCKED_UNTIL.get(key,0)>now: return False
+ q=_ATTEMPTS[key]
  while q and q[0] < now-WINDOW: q.popleft()
- return len(q)<MAX_ATTEMPTS
+ if not q: _LOCKED_UNTIL.pop(key,None)
+ return True
 
 def note_login_failure(key):
- _ATTEMPTS[key].append(time.time())
+ now=time.time(); q=_ATTEMPTS[key]
+ while q and q[0] < now-WINDOW: q.popleft()
+ q.append(now)
+ if len(q)>=LOCK_THRESHOLD: _LOCKED_UNTIL[key]=now+_cooldown_seconds(len(q))
 
 def clear_login_failures(key):
- _ATTEMPTS.pop(key,None)
+ _ATTEMPTS.pop(key,None); _LOCKED_UNTIL.pop(key,None)
 
 def login(password,username="admin"):
  cfg=load()
