@@ -641,3 +641,12 @@ def test_dashboard_boot_cannot_stick_on_startup_error():
     assert "function dismissBoot()" in html
     assert "setTimeout(dismissBoot,2500)" in html
     assert "finally{" in html
+
+
+def test_dashboard_terminal_uses_parse_safe_newlines():
+    import cloud_os
+    from pathlib import Path
+    html=Path(cloud_os.__file__).with_name("dashboard.html").read_text(encoding="utf-8")
+    assert "NL=String.fromCharCode(10)" in html
+    assert 'text.endsWith(NL)' in html
+    assert 'Cloud OS server terminal ready.</pre>' in html
