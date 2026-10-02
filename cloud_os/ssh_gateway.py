@@ -2,7 +2,7 @@ from __future__ import annotations
 import asyncio, os, shutil, threading
 import asyncssh
 from .audit import record
-from .auth import verify,login_allowed,note_login_failure,clear_login_failures
+from .auth import verify,login_allowed,note_login_failure,clear_login_failures,login_allowed,note_login_failure,clear_login_failures
 from .config import APP_DIR, load
 from .files import storage_root
 from .teams import authenticate, permissions
@@ -26,8 +26,16 @@ class CloudOSSSHServer(asyncssh.SSHServer):
     def begin_auth(self,username): return True
     def password_auth_supported(self): return True
     def validate_password(self,username,password):
+        key=f"ssh-account:{str(username).lower()}"
+        if not login_allowed(key):
+            record("ssh.login.throttled",username)
+            return False
         self.identity=_identity(username,password)
         ok=bool(self.identity and _can_terminal(self.identity))
+        if ok:
+            clear_login_failures(key)
+        else:
+            note_login_failure(key)
         record("ssh.login" if ok else "ssh.login.denied",username)
         return ok
 
