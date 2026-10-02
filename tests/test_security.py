@@ -495,3 +495,27 @@ def test_desktop_sidebar_uses_directional_chevron_toggle():
     assert 'aria-label="Collapse sidebar"' in html
     assert 'b.textContent=hidden?">":"<"' in html
     assert 'id="sideToggle" class="sideToggle" type="button" title="Hide/show sidebar" aria-label="Collapse sidebar" aria-expanded="true">&lt;</button>' in html
+
+
+def test_cloudflare_dashboard_connector_never_exposes_token(isolated,monkeypatch):
+    import cloud_os.cloudflare as cf
+    cf.SECRET_FILE=isolated/"cloudflare-secret.json"
+    monkeypatch.setattr(cf,"load",lambda:{"cloudflare_enabled":True,"cloudflare_tunnel":"Cloud OS Tunnel"})
+    cf._write_token("x"*80)
+    s=cf.status()
+    assert s["token_stored"] is True
+    assert "token" not in str(s).replace("token_stored","")
+
+
+def test_cloudflare_dashboard_api_requires_settings_permission():
+    import inspect, cloud_os.api as api
+    assert 'require(req,"settings")' in inspect.getsource(api.connect_cloudflare)
+    assert 'require(req,"settings")' in inspect.getsource(api.restart_cloudflare)
+    assert 'require(req,"settings")' in inspect.getsource(api.disconnect_cloudflare)
+
+
+def test_cloudflare_dashboard_setup_wizard_contract():
+    import cloud_os
+    html=Path(cloud_os.__file__).with_name("dashboard.html").read_text(encoding="utf-8")
+    for marker in ("Connect existing tunnel","Connect Cloudflare Tunnel","Restart connector","/api/integrations/cloudflare/connect","tunnel token stays on this server"):
+        assert marker in html
