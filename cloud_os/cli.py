@@ -194,6 +194,48 @@ def update_check():
         typer.echo("Run: cloud-os update")
 
 
+def _windows_deferred_update(target: str, old: str, old_ref: str) -> None:
+    """Apply an update only after the updater CLI exits and the managed task stops."""
+    helper=REPO_DIR/"cloud-os-update-helper.ps1"
+    log=Path(os.getenv("TEMP",str(REPO_DIR)))/"cloud-os-update.log"
+    script=r"""param([int]$ParentPid,[string]$Repo,[string]$Target,[string]$Old,[string]$OldRef,[string]$Python,[string]$Log)
+$ErrorActionPreference='Stop'
+Start-Transcript -Path $Log -Force | Out-Null
+try {
+  Wait-Process -Id $ParentPid -ErrorAction SilentlyContinue
+  try { Stop-ScheduledTask -TaskName 'CloudOs' -ErrorAction SilentlyContinue } catch {}
+  Start-Sleep -Seconds 2
+  git -C $Repo checkout --detach $Target
+  if ($LASTEXITCODE -ne 0) { throw 'git checkout failed' }
+  & $Python -m pip install --upgrade --no-deps --disable-pip-version-check $Repo
+  if ($LASTEXITCODE -ne 0) { throw 'package install failed; stop any manually started Cloud OS process and retry' }
+  & $Python -m pip check
+  if ($LASTEXITCODE -ne 0) { throw 'dependency check failed' }
+  & $Python -c "import cloud_os; print(cloud_os.__version__)"
+  if ($LASTEXITCODE -ne 0) { throw 'verification failed' }
+  try { Start-ScheduledTask -TaskName 'CloudOs' -ErrorAction SilentlyContinue } catch {}
+  Write-Host '[SUCCESS] Cloud OS update applied.' -ForegroundColor Green
+} catch {
+  Write-Host '[ROLLBACK] Restoring previous revision.' -ForegroundColor Yellow
+  git -C $Repo checkout --detach $Old | Out-Null
+  if ($OldRef) { git -C $Repo checkout $OldRef | Out-Null }
+  & $Python -m pip install --upgrade --no-deps --disable-pip-version-check $Repo
+  try { Start-ScheduledTask -TaskName 'CloudOs' -ErrorAction SilentlyContinue } catch {}
+  Write-Host '[ERROR] Update failed. Stop a manually started Cloud OS server if present, then retry. Log:' $Log -ForegroundColor Red
+} finally { Stop-Transcript | Out-Null }
+"""
+    helper.write_text(script,encoding="utf-8")
+    cmd=["powershell.exe","-NoProfile","-ExecutionPolicy","Bypass","-File",str(helper),
+         "-ParentPid",str(os.getpid()),"-Repo",str(REPO_DIR),"-Target",target,
+         "-Old",old,"-OldRef",old_ref or "","-Python",sys.executable,"-Log",str(log)]
+    flags=getattr(subprocess,"CREATE_NEW_CONSOLE",0)
+    subprocess.Popen(cmd,creationflags=flags,close_fds=True)
+    typer.secho("[STAGED] Windows update prepared safely.",fg=typer.colors.GREEN,bold=True)
+    typer.echo("A separate updater window will stop the managed Cloud OS task, install and verify the update, then restart it.")
+    typer.echo(f"Update log: {log}")
+    raise typer.Exit(0)
+
+
 @app.command()
 def update(source: str = typer.Option("release", help="release or main")):
     if not shutil.which("git"): _fail("U001","Git is required for updates.","Re-run the installer to repair Git.")
@@ -222,6 +264,7 @@ def update(source: str = typer.Option("release", help="release or main")):
     _done(f"Update target resolved: {label}")
     try:
         _step("Fetching update resources"); _run(["git","-C",str(REPO_DIR),"fetch","--tags","origin"]); _done("Repository resources fetched")
+        if os.name=="nt": _windows_deferred_update(target,old,old_ref)
         _step("Downloading and preparing update"); _run(["git","-C",str(REPO_DIR),"checkout","--detach",target]); _done("Update source prepared")
         _step("Installing Cloud OS update"); _install_application_source(); _done("Package installation completed")
         _step("Verifying installed update"); _run([sys.executable,"-c","import cloud_os; print(cloud_os.__version__)"]); _verify_runtime_dependencies()
