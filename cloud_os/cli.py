@@ -160,13 +160,16 @@ def update(source: str = typer.Option("release", help="release or main")):
     if not shutil.which("git"): _fail("U001","Git is required for updates.","Re-run the installer to repair Git.")
     if not (REPO_DIR/".git").exists(): _fail("U002",f"Cloud OS source checkout was not found at {REPO_DIR}.","Re-run the installer.")
     dirty=_run(["git","-C",str(REPO_DIR),"status","--porcelain"]).stdout.strip()
-    if dirty:
-        preview="; ".join(line.strip() for line in dirty.splitlines()[:8])
-        more="" if len(dirty.splitlines())<=8 else f"; +{len(dirty.splitlines())-8} more"
+    # Installer-managed checkouts can contain generated/untracked runtime files.
+    # Only tracked modifications block an update; untracked files are preserved.
+    tracked_dirty=_run(["git","-C",str(REPO_DIR),"diff","--name-only","HEAD"]).stdout.strip()
+    if tracked_dirty:
+        preview="; ".join(line.strip() for line in tracked_dirty.splitlines()[:8])
+        more="" if len(tracked_dirty.splitlines())<=8 else f"; +{len(tracked_dirty.splitlines())-8} more"
         _fail(
             "U005",
             f"Update stopped because the source checkout has local changes at {REPO_DIR}. Changed: {preview}{more}",
-            f"Preserve them with: git -C \"{REPO_DIR}\" stash push -u -m \"Cloud OS pre-update\" ; then run cloud-os update again.",
+            f"Preserve them with: git -C \"{REPO_DIR}\" stash push -m \"Cloud OS pre-update\" ; then run cloud-os update again.",
         )
     old=_run(["git","-C",str(REPO_DIR),"rev-parse","HEAD"]).stdout.strip()
     old_ref=_run(["git","-C",str(REPO_DIR),"symbolic-ref","--quiet","--short","HEAD"],check=False).stdout.strip()
