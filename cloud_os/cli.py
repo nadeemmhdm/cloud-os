@@ -57,6 +57,22 @@ def _local_version() -> str:
     except PackageNotFoundError:
         return "unknown"
 
+def _install_application_source() -> None:
+    """Replace Cloud OS code without touching loaded third-party binaries on Windows."""
+    _run([
+        sys.executable, "-m", "pip", "install",
+        "--upgrade", "--no-deps", "--disable-pip-version-check",
+        str(REPO_DIR),
+    ])
+
+def _verify_runtime_dependencies() -> None:
+    # pip check is read-only: it verifies dependency consistency without trying
+    # to replace DLL/PYD files that a running Cloud OS process may have loaded.
+    result=_run([sys.executable,"-m","pip","check"],check=False)
+    if result.returncode != 0:
+        detail=(result.stdout or result.stderr or "dependency verification failed").strip()
+        _warn("Python dependency check reported an issue: "+detail[:700])
+
 
 def _step(message: str) -> None:
     frames="|/-\\"
@@ -207,13 +223,13 @@ def update(source: str = typer.Option("release", help="release or main")):
     try:
         _step("Fetching update resources"); _run(["git","-C",str(REPO_DIR),"fetch","--tags","origin"]); _done("Repository resources fetched")
         _step("Downloading and preparing update"); _run(["git","-C",str(REPO_DIR),"checkout","--detach",target]); _done("Update source prepared")
-        _step("Installing Cloud OS update"); _run([sys.executable,"-m","pip","install","--upgrade",str(REPO_DIR)]); _done("Package installation completed")
-        _step("Verifying installed update"); _run([sys.executable,"-c","import cloud_os; print(cloud_os.__version__)"])
+        _step("Installing Cloud OS update"); _install_application_source(); _done("Package installation completed")
+        _step("Verifying installed update"); _run([sys.executable,"-c","import cloud_os; print(cloud_os.__version__)"]); _verify_runtime_dependencies()
     except typer.Exit:
         typer.secho("[ROLLBACK] Update failed; restoring previous revision.",fg=typer.colors.YELLOW)
         _run(["git","-C",str(REPO_DIR),"checkout","--detach",old],check=False)
         if old_ref: _run(["git","-C",str(REPO_DIR),"checkout",old_ref],check=False)
-        _run([sys.executable,"-m","pip","install","--upgrade",str(REPO_DIR)],check=False)
+        _run([sys.executable,"-m","pip","install","--upgrade","--no-deps","--disable-pip-version-check",str(REPO_DIR)],check=False)
         raise
     new=_run(["git","-C",str(REPO_DIR),"rev-parse","HEAD"]).stdout.strip()
     installed=_run([sys.executable,"-c","import cloud_os; print(cloud_os.__version__)"],check=False).stdout.strip() or "unknown"
