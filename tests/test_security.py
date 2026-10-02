@@ -565,3 +565,17 @@ def test_mobile_dashboard_uses_persistent_icon_sidebar():
     assert "audit-row" in html
     assert "audit-detail" in html
     assert "audit-time" in html
+
+
+def test_terminal_real_newline_and_small_screen_contract():
+    import inspect
+    import cloud_os.terminal as terminal
+    import cloud_os
+    from pathlib import Path
+    src=inspect.getsource(terminal.execute)
+    assert 'rstrip("\\\\r\\\\n")+"\\\\n"' not in src
+    assert 'rstrip("\\r\\n")+"\\n"' in src
+    html=Path(cloud_os.__file__).with_name("dashboard.html").read_text(encoding="utf-8")
+    assert "@media(max-width:430px)" in html
+    assert "@media(max-width:360px)" in html
+    assert "white-space:pre;overflow:auto" in html
