@@ -3,7 +3,7 @@ import shutil,subprocess
 from fastapi import APIRouter,HTTPException,Request,Response,UploadFile,File
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
-from .auth import login,logout,allowed,identity,login_allowed,login_cooldown,note_login_failure,clear_login_failures,verify,hash_password,revoke_user,change_admin_password
+from .auth import login,logout,allowed,identity,login_allowed,login_cooldown,note_login_failure,clear_login_failures,verify,hash_password,revoke_user,change_admin_password,create_recovery_key,recover_owner,set_owner_locked,owner_security
 from .files import safe_path,safe_upload_path,list_items
 from .terminal import execute,available_shells,create_session,close_session
 from .backup import create_backup,list_backups,delete_backup,backup_info,restore_backup
@@ -44,6 +44,8 @@ class BoostBody(BaseModel): enabled:bool=True
 class PasswordChange(BaseModel): current_password:str; new_password:str
 class AdminPasswordReset(BaseModel): new_password:str
 class AccountState(BaseModel): disabled:bool
+class OwnerLock(BaseModel): locked:bool; reason:str=""
+class OwnerRecovery(BaseModel): recovery_key:str; new_password:str
 class CloudflareConnect(BaseModel):
  tunnel_token:str
  label:str="Existing Cloudflare Tunnel"
@@ -67,6 +69,25 @@ def require(req:Request,permission:str|None=None):
  if not user: fail(401,"AUTH-003")
  if permission and not allowed(t,permission): fail(403,"PERM-001")
  return user
+
+@router.get("/recovery/status")
+def recovery_status():
+ s=owner_security(); return {"recovery_configured":s["recovery_configured"]}
+
+@router.post("/recovery/owner")
+def owner_recover(body:OwnerRecovery,request:Request):
+ _same_origin(request)
+ ip=request.client.host if request.client else "unknown"; key=f"recovery-ip:{ip}"
+ cooldown=login_cooldown(key)
+ if cooldown: raise HTTPException(429,detail=payload("AUTH-002","Recovery temporarily locked. Try again later."),headers={"Retry-After":str(cooldown)})
+ try: ok=recover_owner(body.recovery_key,body.new_password)
+ except ValueError as e: fail(400,"USER-001",str(e))
+ if not ok:
+  wait=note_login_failure(key); record("owner.recovery.failed",ip)
+  if wait: raise HTTPException(429,detail=payload("AUTH-002","Recovery temporarily locked. Try again later."),headers={"Retry-After":str(wait)})
+  fail(401,"AUTH-001","Invalid recovery key")
+ clear_login_failures(key); record("owner.recovery.success","owner account unlocked and password reset")
+ return {"ok":True}
 
 @router.post("/login")
 def do_login(body:Login,request:Request,response:Response):
@@ -296,6 +317,27 @@ def disconnect_cloudflare(req:Request):
 def audit(req:Request): require(req,"audit"); return recent()
 @router.get("/me")
 def me(req:Request): return require(req)
+@router.get("/security/owner")
+def get_owner_security(req:Request):
+ user=require(req,"settings")
+ if user.get("role")!="owner": fail(403,"PERM-001")
+ return owner_security()
+
+@router.post("/security/owner/recovery-key")
+def generate_owner_recovery(req:Request):
+ user=require(req,"settings")
+ if user.get("role")!="owner": fail(403,"PERM-001")
+ key=create_recovery_key(force=True); record("owner.recovery.rotate",user["username"])
+ return {"recovery_key":key,"shown_once":True}
+
+@router.post("/security/owner/lock")
+def owner_lock(body:OwnerLock,req:Request):
+ user=require(req,"settings")
+ if user.get("role")!="owner": fail(403,"PERM-001")
+ if not body.locked: fail(400,"USER-001","Use the recovery key to unlock the owner account")
+ set_owner_locked(True,body.reason or "Locked by owner from Security Center"); record("owner.lock",body.reason[:240])
+ return {"ok":True,"reauthenticate":True}
+
 @router.get("/users")
 def list_users(req:Request):
  require(req,"teams.manage")
