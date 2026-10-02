@@ -2,7 +2,7 @@ from __future__ import annotations
 import asyncio, os, shutil, threading
 import asyncssh
 from .audit import record
-from .auth import verify,login_allowed,note_login_failure,clear_login_failures,login_allowed,note_login_failure,clear_login_failures
+from .auth import verify,login_allowed,note_login_failure,clear_login_failures
 from .config import APP_DIR, load
 from .files import storage_root
 from .teams import authenticate, permissions
