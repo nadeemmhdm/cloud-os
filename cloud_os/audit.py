@@ -1,8 +1,10 @@
 from datetime import datetime,timezone
-import json,os
+import json,os,threading
+from collections import deque
 from .config import APP_DIR
 LOG=APP_DIR/"audit.log"
 MAX_BYTES=5*1024*1024
+_LOCK=threading.RLock()
 
 def _protect():
     try:
@@ -19,17 +21,22 @@ def _rotate():
         except OSError: pass
 
 def record(action,detail=""):
-    APP_DIR.mkdir(parents=True,exist_ok=True); _rotate()
     entry={"time":datetime.now(timezone.utc).isoformat(),"action":str(action)[:128],"detail":str(detail)[:4096]}
-    with LOG.open("a",encoding="utf-8") as f: f.write(json.dumps(entry,ensure_ascii=False)+"\n")
-    _protect()
+    with _LOCK:
+        APP_DIR.mkdir(parents=True,exist_ok=True); _rotate()
+        with LOG.open("a",encoding="utf-8") as f: f.write(json.dumps(entry,ensure_ascii=False)+"\n")
+        _protect()
 
 def recent(limit=100):
-    if not LOG.exists(): return []
     limit=max(1,min(int(limit),1000))
-    lines=LOG.read_text(encoding="utf-8",errors="replace").splitlines()[-limit:]
+    if not LOG.exists(): return []
+    with _LOCK:
+        try:
+            with LOG.open("r",encoding="utf-8",errors="replace") as f:
+                lines=deque(f,maxlen=limit)
+        except OSError:return []
     out=[]
     for line in lines:
         try: out.append(json.loads(line))
-        except Exception: pass
+        except (json.JSONDecodeError,TypeError): pass
     return out
