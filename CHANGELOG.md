@@ -2,7 +2,7 @@
 
 All notable Cloud OS changes are documented here. Detailed release-note drafts are stored under `releases/`.
 
-## Unreleased
+## Unreleased\n\n## 0.3.0\n### Added\n- Verified full backup/restore with SHA-256 manifests and pre-restore safety backups.\n- Persistent progressive web login cooldowns and SSH password throttling.\n- Safe animated CLI update workflow with dirty-checkout protection and rollback attempt.\n- Confirmed `cloud-os uninstall` command with data-preserving defaults.\n- Live dashboard clock/date/timezone, collapsed navigation rail and refreshed AI identity.\n\n### Changed\n- Backup UI now exposes integrity, restore, protected-latest and controlled-delete states.\n- Website and documentation now cover current update, uninstall, backup and security behavior.\n- Public health output no longer exposes the Cloud OS version.\n\n### Fixed\n- Dashboard terminal session API regression and clearer HTTP error handling.\n- Cross-platform system disk metrics syntax/Windows root selection.\n- Stale SSH isolation wording and documentation inconsistencies.\n\nSee [releases/0.3.0.md](releases/0.3.0.md).
 
 ## 0.2.2
 ### Added
