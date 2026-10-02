@@ -631,3 +631,13 @@ def test_windows_staging_occurs_outside_update_rollback_handler():
     helper=inspect.getsource(cli._windows_deferred_update)
     assert "Get-Process -Name 'cloud-os'" in helper
     assert "still running" in helper
+
+
+def test_dashboard_boot_cannot_stick_on_startup_error():
+    import cloud_os
+    from pathlib import Path
+    html=Path(cloud_os.__file__).with_name("dashboard.html").read_text(encoding="utf-8")
+    assert "navGeneration=0" in html
+    assert "function dismissBoot()" in html
+    assert "setTimeout(dismissBoot,2500)" in html
+    assert "finally{" in html
