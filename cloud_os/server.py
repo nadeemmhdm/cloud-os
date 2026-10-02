@@ -1,13 +1,18 @@
-import platform,time,shutil,subprocess,os
+import platform,time,shutil,subprocess,os,socket
 import psutil
 from fastapi import FastAPI,Request
 from fastapi.responses import HTMLResponse,FileResponse
 from . import __version__
 from .api import router,require
+from .updater import start_update_checker
 
 app=FastAPI(title="Cloud Os",version=__version__,docs_url=None,redoc_url=None)
 app.include_router(router)
 BOOT=time.time()
+
+@app.on_event("startup")
+def _start_background_services():
+ start_update_checker()
 
 @app.middleware("http")
 async def security_headers(request:Request,call_next):
