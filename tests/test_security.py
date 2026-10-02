@@ -465,3 +465,24 @@ def test_backup_restore_preserves_current_storage_location():
     import inspect, cloud_os.backup as backup
     source=inspect.getsource(backup.restore_backup)
     assert 'cfg["storage_root"]=str(current_storage)' in source
+
+
+def test_health_does_not_disclose_version():
+    import cloud_os.server as server
+    assert server.health()=={"status":"ok"}
+
+def test_runtime_does_not_claim_ssh_is_isolated():
+    import inspect,cloud_os.runtime as runtime
+    s=inspect.getsource(runtime.prepare_integrations)
+    assert "isolated SSH/SFTP" not in s and "host-native shell" in s
+
+def test_ssh_password_auth_has_throttling():
+    import inspect,cloud_os.ssh_gateway as ssh
+    s=inspect.getsource(ssh.CloudOSSSHServer.validate_password)
+    assert "login_allowed" in s and "note_login_failure" in s
+
+def test_cli_update_and_uninstall_security_contract():
+    import inspect,cloud_os.cli as cli
+    up=inspect.getsource(cli.update); un=inspect.getsource(cli.uninstall)
+    assert "--porcelain" in up and "ROLLBACK" in up and "Cloud OS updated successfully" in up
+    assert "purge_data" in un and "typer.confirm" in un
