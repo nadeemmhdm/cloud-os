@@ -3,7 +3,7 @@ import shutil,subprocess
 from fastapi import APIRouter,HTTPException,Request,Response,UploadFile,File
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
-from .auth import login,logout,allowed,identity,login_allowed,note_login_failure,clear_login_failures,verify,hash_password,revoke_user,change_admin_password
+from .auth import login,logout,allowed,identity,login_allowed,login_cooldown,note_login_failure,clear_login_failures,verify,hash_password,revoke_user,change_admin_password
 from .files import safe_path,safe_upload_path,list_items
 from .terminal import execute,available_shells,create_session,close_session
 from .backup import create_backup,list_backups,delete_backup,backup_info,restore_backup
@@ -70,12 +70,18 @@ def do_login(body:Login,request:Request,response:Response):
  username=(body.username or "").strip()
  account_key=f"account:{username.lower()}"
  ip_key=f"ip:{ip}"
- if not login_allowed(account_key) or not login_allowed(ip_key):
-  record("login.throttled",username); fail(429,"AUTH-002")
+ cooldown=max(login_cooldown(account_key),login_cooldown(ip_key))
+ if cooldown:
+  record("login.throttled",username)
+  response.headers["Retry-After"]=str(min(cooldown,60))
+  fail(429,"AUTH-002","Login temporarily locked. Try again shortly.")
  t=login(body.password,username)
  if not t:
-  note_login_failure(account_key); note_login_failure(ip_key)
-  record("login.failed",username); fail(401,"AUTH-001")
+  account_wait=note_login_failure(account_key); ip_wait=note_login_failure(ip_key)
+  record("login.failed",username)
+  if max(account_wait,ip_wait):
+   response.headers["Retry-After"]=str(min(max(account_wait,ip_wait),60))
+  fail(401,"AUTH-001")
  clear_login_failures(account_key); clear_login_failures(ip_key)
  cfg=load()
  response.set_cookie("cloudos_session",t,httponly=True,samesite="strict",secure=bool(cfg.get("secure_cookies")),max_age=43200,path="/")

@@ -405,3 +405,25 @@ def test_login_autofill_and_independent_throttle_contract():
     html=Path(cloud_os.__file__).with_name("dashboard.html").read_text(encoding="utf-8")
     assert 'id="u" value="admin" autocomplete="username"' in html
     assert 'autocomplete="current-password"' in html
+
+
+def test_login_security_persists_and_progressively_locks(isolated,monkeypatch):
+    import cloud_os.auth as auth
+    auth.SECURITY_FILE=isolated/"login-security.json"
+    monkeypatch.setattr(auth.time,"time",lambda:1000.0)
+    key="account:admin"
+    for _ in range(5): wait=auth.note_login_failure(key)
+    assert wait>=2 and not auth.login_allowed(key)
+    assert auth.SECURITY_FILE.exists()
+    monkeypatch.setattr(auth.time,"time",lambda:1003.0)
+    assert auth.login_allowed(key)
+    auth.clear_login_failures(key)
+    assert auth.login_allowed(key)
+    auth.SECURITY_FILE=None
+
+
+def test_login_ui_prefills_owner_and_has_cooldown_state():
+    import cloud_os
+    html=Path(cloud_os.__file__).with_name("dashboard.html").read_text(encoding="utf-8")
+    assert 'id="u" value="admin" autocomplete="username"' in html
+    for marker in ('id="loginBtn"',"loginCooldown(","Locked · ","aria-live="): assert marker in html

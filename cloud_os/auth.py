@@ -5,14 +5,56 @@ from collections import defaultdict, deque
 from .config import load,save
 
 SESSIONS={}
-_ATTEMPTS=defaultdict(deque)
-_LOCKED_UNTIL={}
+SECURITY_FILE=None
 WINDOW=900
 LOCK_THRESHOLD=5
 MAX_LOCK_SECONDS=900
 
+def _security_path():
+ from .config import APP_DIR
+ return APP_DIR/"login-security.json" if SECURITY_FILE is None else SECURITY_FILE
+
+def _load_security():
+ p=_security_path()
+ try:
+  d=__import__("json").loads(p.read_text(encoding="utf-8"))
+  return d if isinstance(d,dict) else {}
+ except (OSError,ValueError): return {}
+
+def _save_security(d):
+ p=_security_path(); p.parent.mkdir(parents=True,exist_ok=True)
+ tmp=p.with_suffix(".tmp"); tmp.write_text(__import__("json").dumps(d),encoding="utf-8")
+ try:
+  if __import__("os").name!="nt": tmp.chmod(0o600)
+ except OSError: pass
+ tmp.replace(p)
+
 def _cooldown_seconds(failures):
+ # 5th failure=2s, then 4, 8... capped at 15 minutes.
  return min(MAX_LOCK_SECONDS,2 ** max(1,failures-4))
+
+def login_cooldown(key):
+ now=time.time(); d=_load_security(); row=d.get(key,{})
+ attempts=[float(x) for x in row.get("attempts",[]) if float(x)>=now-WINDOW]
+ locked=float(row.get("locked_until",0) or 0)
+ if locked<=now and not attempts:
+  if key in d: d.pop(key,None); _save_security(d)
+  return 0
+ return max(0,int(locked-now+0.999))
+
+def login_allowed(key): return login_cooldown(key)<=0
+
+def note_login_failure(key):
+ now=time.time(); d=_load_security(); row=d.get(key,{})
+ q=[float(x) for x in row.get("attempts",[]) if float(x)>=now-WINDOW]; q.append(now)
+ row={"attempts":q,"locked_until":float(row.get("locked_until",0) or 0)}
+ if len(q)>=LOCK_THRESHOLD: row["locked_until"]=max(row["locked_until"],now+_cooldown_seconds(len(q)))
+ d[key]=row; _save_security(d)
+ return max(0,int(row["locked_until"]-now+0.999))
+
+def clear_login_failures(key):
+ d=_load_security()
+ if key in d: d.pop(key,None); _save_security(d)
 
 def hash_password(password,salt=None):
  if not isinstance(password,str) or len(password)<12:
