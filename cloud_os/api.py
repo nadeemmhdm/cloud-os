@@ -15,6 +15,7 @@ from .config import load
 from .errors import payload
 from .ai import status as ai_status,configure as ai_configure,remove as ai_remove,chat_answer
 from .booster import status as booster_status,boost as booster_enable,normal as booster_normal
+from .updater import update_status,check_now
 
 router=APIRouter(prefix="/api")
 SAFE_METHODS={"GET","HEAD","OPTIONS"}
@@ -73,14 +74,13 @@ def do_login(body:Login,request:Request,response:Response):
  cooldown=max(login_cooldown(account_key),login_cooldown(ip_key))
  if cooldown:
   record("login.throttled",username)
-  response.headers["Retry-After"]=str(min(cooldown,60))
-  fail(429,"AUTH-002","Login temporarily locked. Try again shortly.")
+  raise HTTPException(429,detail=payload("AUTH-002","Login temporarily locked. Try again shortly."),headers={"Retry-After":str(cooldown)})
  t=login(body.password,username)
  if not t:
   account_wait=note_login_failure(account_key); ip_wait=note_login_failure(ip_key)
   record("login.failed",username)
   if max(account_wait,ip_wait):
-   response.headers["Retry-After"]=str(min(max(account_wait,ip_wait),60))
+   raise HTTPException(429,detail=payload("AUTH-002","Login temporarily locked. Try again shortly."),headers={"Retry-After":str(max(account_wait,ip_wait))})
   fail(401,"AUTH-001")
  clear_login_failures(account_key); clear_login_failures(ip_key)
  cfg=load()
@@ -381,3 +381,13 @@ def set_booster(body:BoostBody,req:Request):
  r=booster_enable() if body.enabled else booster_normal()
  record("booster.change",f"{user['username']}:enabled={body.enabled}:applied={r.get('applied',False)}")
  return r
+
+
+@router.get("/update/status")
+def get_update_status(req:Request):
+ require(req); return update_status()
+
+@router.post("/update/check")
+def update_check_now(req:Request):
+ user=require(req,"settings")
+ r=check_now(); record("update.check",user["username"]); return r
