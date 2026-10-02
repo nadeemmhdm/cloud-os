@@ -554,3 +554,14 @@ def test_security_center_contract():
         assert marker in src
     assert "Forgot password / unlock owner" in html
     assert "Emergency account lock" in html
+
+
+def test_mobile_dashboard_uses_persistent_icon_sidebar():
+    import cloud_os
+    from pathlib import Path
+    html=Path(cloud_os.__file__).with_name("dashboard.html").read_text(encoding="utf-8")
+    assert "grid-template-columns:64px minmax(0,1fr)" in html
+    assert ".hamb,.mobile{display:none!important}" in html
+    assert "audit-row" in html
+    assert "audit-detail" in html
+    assert "audit-time" in html
