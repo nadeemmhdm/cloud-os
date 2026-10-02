@@ -205,6 +205,13 @@ try {
   Wait-Process -Id $ParentPid -ErrorAction SilentlyContinue
   try { Stop-ScheduledTask -TaskName 'CloudOs' -ErrorAction SilentlyContinue } catch {}
   Start-Sleep -Seconds 2
+  $deadline=(Get-Date).AddSeconds(20)
+  while ((Get-Process -Name 'cloud-os' -ErrorAction SilentlyContinue) -and (Get-Date) -lt $deadline) {
+    Start-Sleep -Milliseconds 500
+  }
+  if (Get-Process -Name 'cloud-os' -ErrorAction SilentlyContinue) {
+    throw 'cloud-os.exe is still running. Close any manual Cloud OS terminal/server window and retry.'
+  }
   git -C $Repo checkout --detach $Target
   if ($LASTEXITCODE -ne 0) { throw 'git checkout failed' }
   & $Python -m pip install --upgrade --no-deps --disable-pip-version-check $Repo
@@ -262,9 +269,12 @@ def update(source: str = typer.Option("release", help="release or main")):
     elif source=="main": target="origin/main"; label="main"
     else: _fail("U004","Unknown update source.","Use --source release or --source main.")
     _done(f"Update target resolved: {label}")
+    _step("Fetching update resources"); _run(["git","-C",str(REPO_DIR),"fetch","--tags","origin"]); _done("Repository resources fetched")
+    # Windows cannot replace cloud-os.exe/site-packages while this CLI process is
+    # alive. Stage the update before entering rollback handling; the helper waits
+    # for this process to exit, then applies the update.
+    if os.name=="nt": _windows_deferred_update(target,old,old_ref)
     try:
-        _step("Fetching update resources"); _run(["git","-C",str(REPO_DIR),"fetch","--tags","origin"]); _done("Repository resources fetched")
-        if os.name=="nt": _windows_deferred_update(target,old,old_ref)
         _step("Downloading and preparing update"); _run(["git","-C",str(REPO_DIR),"checkout","--detach",target]); _done("Update source prepared")
         _step("Installing Cloud OS update"); _install_application_source(); _done("Package installation completed")
         _step("Verifying installed update"); _run([sys.executable,"-c","import cloud_os; print(cloud_os.__version__)"]); _verify_runtime_dependencies()
