@@ -18,7 +18,7 @@ import uvicorn
 from .config import load, save
 from .doctor import report
 from .runtime import prepare_integrations
-from .auth import ensure_admin,create_recovery_key
+from .auth import ensure_admin,create_recovery_key,recover_owner
 
 app = typer.Typer(no_args_is_help=True, help="Cloud OS management CLI")
 REPO = "nadeemmhdm/cloud-os"
@@ -105,6 +105,24 @@ def setup(port: int = 8765, ssh: bool = True):
             _fail("S001", str(exc), "Run 'cloud-os setup' again and choose a stronger password.")
     _ok("Cloud OS configuration saved.")
 
+
+@app.command("owner-recover")
+def owner_recover():
+    """Recover a locked owner account from the trusted local console."""
+    typer.secho("Cloud OS - Owner Recovery",fg=typer.colors.YELLOW,bold=True)
+    typer.echo("This local recovery path still requires your offline recovery key.")
+    key=typer.prompt("Offline recovery key",hide_input=True)
+    password=typer.prompt("New owner password",hide_input=True,confirmation_prompt=True)
+    try:
+        if not recover_owner(key,password):
+            _fail("S002","Invalid owner recovery key.","Use the offline recovery key generated in Settings > Security.")
+        new_key=create_recovery_key(force=True)
+    except ValueError as exc:
+        _fail("S002",str(exc),"Choose a password of at least 12 characters.")
+    typer.secho("Owner account recovered. Existing owner sessions were revoked.",fg=typer.colors.GREEN)
+    typer.secho("NEW RECOVERY KEY - SAVE OFFLINE",fg=typer.colors.YELLOW,bold=True)
+    typer.echo(new_key)
+    typer.echo("The previous recovery key is no longer valid and this new key will not be shown again.")
 
 @app.command()
 def start():
