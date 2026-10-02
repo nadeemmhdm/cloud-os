@@ -517,5 +517,5 @@ def test_cloudflare_dashboard_api_requires_settings_permission():
 def test_cloudflare_dashboard_setup_wizard_contract():
     import cloud_os
     html=Path(cloud_os.__file__).with_name("dashboard.html").read_text(encoding="utf-8")
-    for marker in ("Connect existing tunnel","Connect Cloudflare Tunnel","Restart connector","/api/integrations/cloudflare/connect","tunnel token stays on this server"):
+    for marker in ("Connect existing tunnel","Connect Cloudflare Tunnel","Restart connector","/api/integrations/cloudflare/connect","The token stays on this server."):
         assert marker in html
