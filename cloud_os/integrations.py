@@ -31,5 +31,7 @@ def status():
         "ssh_client_proxy":"cloudflared access ssh --hostname %h",
         "connector_running":managed["connector_running"],
         "token_stored":managed["token_stored"],
+        "cloudflared_version":managed["cloudflared_version"],
+        "diagnostic":managed["diagnostic"],
       }
     }
