@@ -78,6 +78,12 @@ def restore_backup(name):
             src=saved_state/fname; dst=APP_DIR/fname
             if src.is_file(): shutil.copy2(src,dst)
             elif dst.exists(): dst.unlink()
+        # Preserve the current host storage location. Never redirect a restore
+        # into an arbitrary path embedded in an older backup configuration.
+        cfg_path=APP_DIR/"config.json"
+        if cfg_path.is_file():
+            cfg=json.loads(cfg_path.read_text(encoding="utf-8")); cfg["storage_root"]=str(current_storage)
+            tmp=cfg_path.with_suffix(".restore.tmp"); tmp.write_text(json.dumps(cfg,indent=2),encoding="utf-8"); tmp.replace(cfg_path)
     except Exception:
         # Best-effort rollback from the safety snapshot.
         sdata=safety/"data"; sstorage=sdata/"storage"; sstate=sdata/"state"
