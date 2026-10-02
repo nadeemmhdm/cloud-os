@@ -427,3 +427,40 @@ def test_login_ui_prefills_owner_and_has_cooldown_state():
     html=Path(cloud_os.__file__).with_name("dashboard.html").read_text(encoding="utf-8")
     assert 'id="u" value="admin" autocomplete="username"' in html
     for marker in ('id="loginBtn"',"loginCooldown(","Locked · ","aria-live="): assert marker in html
+
+
+def test_persistent_login_throttle_definitions_are_not_overridden():
+    import inspect, cloud_os.auth as auth
+    source=inspect.getsource(auth)
+    assert source.count("def login_allowed(key):")==1
+    assert source.count("def note_login_failure(key):")==1
+    assert "_LOCKED_UNTIL" not in source
+    assert "_ATTEMPTS" not in source
+
+def test_update_checker_is_hourly_and_never_auto_installs():
+    import inspect, cloud_os.updater as updater
+    source=inspect.getsource(updater)
+    assert updater.INTERVAL==3600
+    assert "pip install" not in source
+    assert "subprocess" not in source
+    assert "releases/latest" in source
+
+def test_update_endpoints_require_auth_and_settings():
+    import inspect, cloud_os.api as api
+    assert "require(req)" in inspect.getsource(api.get_update_status)
+    assert 'require(req,"settings")' in inspect.getsource(api.update_check_now)
+
+def test_dashboard_update_center_and_dismissible_announcement():
+    import cloud_os
+    html=Path(cloud_os.__file__).with_name("dashboard.html").read_text(encoding="utf-8")
+    for marker in ("Update Center","Check now","cloudos-dismissed-update","Hide dashboard announcement","/api/update/status","/api/update/check"):
+        assert marker in html
+
+def test_system_details_imports_socket():
+    import cloud_os.server as server
+    assert hasattr(server,"socket")
+
+def test_backup_restore_preserves_current_storage_location():
+    import inspect, cloud_os.backup as backup
+    source=inspect.getsource(backup.restore_backup)
+    assert 'cfg["storage_root"]=str(current_storage)' in source
