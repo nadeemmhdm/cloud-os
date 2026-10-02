@@ -383,9 +383,9 @@ def test_backup_restore_api_and_animated_ui_contract():
         assert marker in html
 
 
-def test_login_progressive_cooldown_contract(monkeypatch):
+def test_login_progressive_cooldown_contract(isolated,monkeypatch):
     import cloud_os.auth as auth
-    auth._ATTEMPTS.clear(); auth._LOCKED_UNTIL.clear()
+    auth.SECURITY_FILE=isolated/"cooldown.json"
     now=[1000.0]; monkeypatch.setattr(auth.time,"time",lambda:now[0])
     key="account:admin"
     for _ in range(4): auth.note_login_failure(key)
@@ -395,6 +395,7 @@ def test_login_progressive_cooldown_contract(monkeypatch):
     now[0]+=3
     assert auth.login_allowed(key)
     auth.clear_login_failures(key)
+    auth.SECURITY_FILE=None
 
 
 def test_login_autofill_and_independent_throttle_contract():
