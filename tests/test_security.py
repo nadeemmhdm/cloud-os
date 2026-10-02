@@ -597,3 +597,14 @@ def test_same_origin_rejects_cross_site_fetch():
     src=inspect.getsource(api._same_origin)
     assert 'fetch_site=="cross-site"' in src
     assert "Cross-site state-changing request blocked" in src
+
+
+def test_windows_safe_updater_does_not_upgrade_loaded_dependencies():
+    import inspect, cloud_os.cli as cli
+    install_src=inspect.getsource(cli._install_application_source)
+    assert '"--no-deps"' in install_src
+    assert '"--disable-pip-version-check"' in install_src
+    update_src=inspect.getsource(cli.update)
+    assert '"--no-deps"' in update_src
+    verify_src=inspect.getsource(cli._verify_runtime_dependencies)
+    assert '"check"' in verify_src
