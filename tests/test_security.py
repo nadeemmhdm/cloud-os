@@ -486,3 +486,12 @@ def test_cli_update_and_uninstall_security_contract():
     up=inspect.getsource(cli.update); un=inspect.getsource(cli.uninstall)
     assert "--porcelain" in up and "ROLLBACK" in up and "Cloud OS updated successfully" in up
     assert "purge_data" in un and "typer.confirm" in un
+
+
+def test_desktop_sidebar_uses_directional_chevron_toggle():
+    import cloud_os
+    html=Path(cloud_os.__file__).with_name("dashboard.html").read_text(encoding="utf-8")
+    assert 'id="sideToggle"' in html
+    assert 'aria-label="Collapse sidebar"' in html
+    assert 'b.textContent=hidden?">":"<"' in html
+    assert 'id="sideToggle" class="sideToggle" type="button" title="Hide/show sidebar" aria-label="Collapse sidebar" aria-expanded="true">&lt;</button>' in html
