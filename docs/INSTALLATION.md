@@ -52,7 +52,7 @@ cloud-os update
 cloud-os update --source main
 ```
 
-If no GitHub Release exists yet, the CLI explains that clearly instead of showing an unhandled traceback.
+If no GitHub Release exists yet, the CLI explains that clearly instead of showing an unhandled traceback. The updater shows real operation stages, refuses to overwrite a dirty source checkout, attempts rollback after an installation failure, and reports the resulting version/revision after success.
 
 ## Uninstall\n\n`cloud-os uninstall` asks for confirmation and preserves configuration, backups and configured storage by default. Use `cloud-os uninstall --purge-data` only when permanent data removal is intended.\n\n## Troubleshooting
 

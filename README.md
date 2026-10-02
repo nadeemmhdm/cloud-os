@@ -24,7 +24,7 @@ The product demo source is stored at `site/assets/cloud-os-demo.mov`.
 - Users, teams and permission-aware management operations
 - Host-native PowerShell on Windows and Bash on Linux
 - Explicit terminal timeout, output and authorization boundaries
-- On-demand backups and audit logging
+- Verified full Cloud OS backups with restore safety snapshots, integrity checks and protected latest backup\n- Persistent progressive login cooldowns for web and SSH authentication\n- Audit logging
 - SSH and Cloudflare Tunnel integration/status hooks
 - `cloud-os doctor` diagnostics
 - Optional AI Help using Gemini, OpenAI, Claude or Ollama Cloud
@@ -107,7 +107,7 @@ AI Help retrieves relevant local project documentation and supplies it as refere
 
 ## Security
 
-Cloud OS uses salted password hashing, expiring sessions, login throttling, permission checks, restricted storage paths, bounded terminal execution, audit logging, and browser same-origin checks for state-changing authenticated operations.
+Cloud OS uses salted password hashing, expiring sessions, persistent progressive login throttling for web/SSH authentication, permission checks, restricted storage paths, bounded terminal execution, audit logging, and browser same-origin checks for state-changing authenticated operations.
 
 The web terminal executes with the operating-system privileges available to the Cloud OS process. Windows UAC is not bypassed. Grant terminal access only to trusted users.
 
@@ -132,11 +132,11 @@ For deployment requirements and vulnerability reporting, read [Security Policy](
 
 ## Current Limitations
 
-Cloud OS is not yet a production-hardened appliance. In particular, signed/checksummed update artifacts, complete backup restore/integrity workflows, persistent distributed sessions, hardened Windows secret ACL handling, and full pre-login Windows service architecture remain development areas.
+Cloud OS is not yet a production-hardened appliance. In particular, signed/checksummed update artifacts, encrypted/off-device backup packaging, persistent distributed sessions, hardened Windows secret ACL handling, and full pre-login Windows service architecture remain development areas.
 
 Current Windows automatic startup is logon-triggered. The Linux development installer does not enable Cloud OS as a root system service.
 
-## Development
+## Updates & Uninstall\n\n`cloud-os update` now uses visible real-stage progress: update check, repository fetch, source preparation, package installation and verification. It refuses to overwrite a dirty source checkout and attempts rollback if installation fails. On success it reports the installed version and Git revision.\n\n`cloud-os uninstall` asks for confirmation and preserves Cloud OS state, backups and configured storage by default. `cloud-os uninstall --purge-data` permanently removes those data locations and should be used only intentionally.\n\n## Development
 
 Use Python 3.10 or newer.
 
