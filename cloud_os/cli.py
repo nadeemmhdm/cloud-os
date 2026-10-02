@@ -8,6 +8,7 @@ import subprocess
 import sys
 import urllib.error
 import urllib.request
+import time
 from importlib.metadata import PackageNotFoundError, version as package_version
 from pathlib import Path
 
@@ -56,6 +57,17 @@ def _local_version() -> str:
     except PackageNotFoundError:
         return "unknown"
 
+
+def _step(message: str) -> None:
+    frames="|/-\\"
+    if not sys.stdout.isatty():
+        typer.echo(f"[....] {message}"); return
+    for i in range(6):
+        typer.echo(f"\r[{frames[i%4]}] {message}",nl=False); time.sleep(0.05)
+    typer.echo(f"\r[OK] {message}")
+
+def _done(message: str) -> None:
+    typer.secho(f"[DONE] {message}",fg=typer.colors.GREEN)
 
 def _latest_release() -> dict:
     req = urllib.request.Request(
@@ -145,43 +157,35 @@ def update_check():
 
 @app.command()
 def update(source: str = typer.Option("release", help="release or main")):
-    if not shutil.which("git"):
-        _fail("U001", "Git is required for the current updater.", "Re-run the one-command installer; it can install Git automatically.")
-
-    if not (REPO_DIR / ".git").exists():
-        _fail("U002", f"Cloud OS source checkout was not found at {REPO_DIR}.", "Re-run the one-command installer to repair the installation.")
-
-    old = _run(["git", "-C", str(REPO_DIR), "rev-parse", "HEAD"]).stdout.strip()
-    typer.echo(f"Current revision: {old[:12]}")
-
-    if source == "release":
-        release = _latest_release()
-        tag = str(release.get("tag_name", "")).strip()
-        if not tag:
-            _fail("U003", "Latest release has no tag.")
-        _run(["git", "-C", str(REPO_DIR), "fetch", "--tags", "origin"])
-        _run(["git", "-C", str(REPO_DIR), "checkout", "--detach", tag])
-    elif source == "main":
-        _run(["git", "-C", str(REPO_DIR), "fetch", "origin", "main"])
-        _run(["git", "-C", str(REPO_DIR), "checkout", "main"])
-        _run(["git", "-C", str(REPO_DIR), "reset", "--hard", "origin/main"])
-    else:
-        _fail("U004", "Unknown update source.", "Use --source release or --source main.")
-
+    if not shutil.which("git"): _fail("U001","Git is required for updates.","Re-run the installer to repair Git.")
+    if not (REPO_DIR/".git").exists(): _fail("U002",f"Cloud OS source checkout was not found at {REPO_DIR}.","Re-run the installer.")
+    if _run(["git","-C",str(REPO_DIR),"status","--porcelain"]).stdout.strip():
+        _fail("U005","Update stopped because the source checkout has local changes.","Commit or stash them first; Cloud OS will not destroy local work.")
+    old=_run(["git","-C",str(REPO_DIR),"rev-parse","HEAD"]).stdout.strip()
+    old_ref=_run(["git","-C",str(REPO_DIR),"symbolic-ref","--quiet","--short","HEAD"],check=False).stdout.strip()
+    current=_local_version(); _step("Checking for updates")
+    if source=="release":
+        rel=_latest_release(); target=str(rel.get("tag_name","")).strip()
+        if not target: _fail("U003","Latest release has no tag.")
+        label=target.lstrip("v")
+    elif source=="main": target="origin/main"; label="main"
+    else: _fail("U004","Unknown update source.","Use --source release or --source main.")
+    _done(f"Update target resolved: {label}")
     try:
-        _run([sys.executable, "-m", "pip", "install", "--upgrade", str(REPO_DIR)])
+        _step("Fetching update resources"); _run(["git","-C",str(REPO_DIR),"fetch","--tags","origin"]); _done("Repository resources fetched")
+        _step("Downloading and preparing update"); _run(["git","-C",str(REPO_DIR),"checkout","--detach",target]); _done("Update source prepared")
+        _step("Installing Cloud OS update"); _run([sys.executable,"-m","pip","install","--upgrade",str(REPO_DIR)]); _done("Package installation completed")
+        _step("Verifying installed update"); _run([sys.executable,"-c","import cloud_os; print(cloud_os.__version__)"])
     except typer.Exit:
-        typer.secho("[ROLLBACK] Update install failed; restoring previous revision.", fg=typer.colors.YELLOW)
-        _run(["git", "-C", str(REPO_DIR), "checkout", "--detach", old], check=False)
-        _run([sys.executable, "-m", "pip", "install", "--upgrade", str(REPO_DIR)], check=False)
+        typer.secho("[ROLLBACK] Update failed; restoring previous revision.",fg=typer.colors.YELLOW)
+        _run(["git","-C",str(REPO_DIR),"checkout","--detach",old],check=False)
+        if old_ref: _run(["git","-C",str(REPO_DIR),"checkout",old_ref],check=False)
+        _run([sys.executable,"-m","pip","install","--upgrade",str(REPO_DIR)],check=False)
         raise
-
-    new = _run(["git", "-C", str(REPO_DIR), "rev-parse", "HEAD"]).stdout.strip()
-    if new == old:
-        _ok("Cloud OS is already up to date.")
-    else:
-        _ok(f"Cloud OS updated: {old[:12]} -> {new[:12]}")
-        typer.echo("Run: cloud-os doctor")
+    new=_run(["git","-C",str(REPO_DIR),"rev-parse","HEAD"]).stdout.strip()
+    installed=_run([sys.executable,"-c","import cloud_os; print(cloud_os.__version__)"],check=False).stdout.strip() or "unknown"
+    typer.secho("\n[SUCCESS] Cloud OS updated successfully.",fg=typer.colors.GREEN,bold=True)
+    typer.echo(f"Version: {current} -> {installed}"); typer.echo(f"Revision: {old[:12]} -> {new[:12]}"); typer.echo(f"Channel: {source}"); typer.echo("Next: cloud-os doctor")
 
 
 if __name__ == "__main__":
