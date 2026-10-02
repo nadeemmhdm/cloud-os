@@ -357,3 +357,27 @@ def test_overview_has_live_user_clock_date_and_timezone():
     html=Path(cloud_os.__file__).with_name("dashboard.html").read_text(encoding="utf-8")
     for marker in ("clockCard","clockTime","clockDate","Intl.DateTimeFormat","Signed in as","clockTimer=setInterval(tick,1000)"):
         assert marker in html
+
+
+def test_full_backup_restore_integrity_and_safety(isolated,monkeypatch):
+    import cloud_os.backup as backup
+    store=isolated/"storage"; store.mkdir(); (store/"hello.txt").write_text("before",encoding="utf-8")
+    monkeypatch.setattr(backup,"APP_DIR",isolated)
+    monkeypatch.setattr(backup,"storage_root",lambda:store)
+    (isolated/"config.json").write_text('{"x":1}',encoding="utf-8")
+    name=Path(backup.create_backup()).name
+    info=backup.backup_info(name)
+    assert info["verified"] is True and info["file_count"]>=2
+    (store/"hello.txt").write_text("changed",encoding="utf-8")
+    r=backup.restore_backup(name)
+    assert (store/"hello.txt").read_text(encoding="utf-8")=="before"
+    assert r["safety_backup"] and r["restart_recommended"] is True
+
+
+def test_backup_restore_api_and_animated_ui_contract():
+    import inspect,cloud_os,cloud_os.api as api
+    html=Path(cloud_os.__file__).with_name("dashboard.html").read_text(encoding="utf-8")
+    assert "restore_backup" in inspect.getsource(api.backup_restore)
+    assert 'role") not in ("owner","admin")' in inspect.getsource(api.backup_restore)
+    for marker in ("Backup & Restore","Create full backup","data-restore","backupFloat","Integrity verified"):
+        assert marker in html

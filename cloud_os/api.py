@@ -6,7 +6,7 @@ from pydantic import BaseModel
 from .auth import login,logout,allowed,identity,login_allowed,note_login_failure,clear_login_failures,verify,hash_password,revoke_user,change_admin_password
 from .files import safe_path,safe_upload_path,list_items
 from .terminal import execute,available_shells,create_session,close_session
-from .backup import create_backup,list_backups,delete_backup
+from .backup import create_backup,list_backups,delete_backup,backup_info,restore_backup
 from .doctor import report
 from .integrations import status as integration_status
 from .audit import record,recent
@@ -226,6 +226,23 @@ def backup(req:Request):
 
 @router.get("/backups")
 def backups(req:Request): require(req,"backups"); return list_backups()
+
+@router.get("/backups/{name}")
+def backup_details(name:str,req:Request):
+ require(req,"backups")
+ try:return backup_info(name)
+ except FileNotFoundError as e: fail(404,"BACKUP-001",str(e))
+ except (ValueError,OSError) as e: fail(400,"BACKUP-001",str(e))
+
+@router.post("/backups/{name}/restore")
+def backup_restore(name:str,req:Request):
+ user=require(req,"backups")
+ if user.get("role") not in ("owner","admin"): fail(403,"PERM-001")
+ try:r=restore_backup(name)
+ except FileNotFoundError as e: fail(404,"BACKUP-001",str(e))
+ except (ValueError,OSError,shutil.Error) as e: fail(400,"BACKUP-001",str(e))
+ record("backup.restore",f"{user['username']}:{name}:safety={r['safety_backup']}")
+ return r
 
 @router.delete("/backups/{name}")
 def backup_delete(name:str,req:Request):
