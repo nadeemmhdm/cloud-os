@@ -1,5 +1,6 @@
 import shutil, socket
 from .config import load
+from .cloudflare import status as cloudflare_status
 
 def _port_open(host,port):
     try:
@@ -9,7 +10,7 @@ def _port_open(host,port):
 def status():
     cfg=load(); sh=str(cfg.get("ssh_host","127.0.0.1")); sp=int(cfg.get("ssh_port",2222))
     probe="127.0.0.1" if sh in ("0.0.0.0","::") else sh
-    cf=bool(shutil.which("cloudflared"))
+    cf=bool(shutil.which("cloudflared")); managed=cloudflare_status()
     return {
       "ssh":{
         "enabled":bool(cfg.get("ssh_enabled")),
@@ -28,5 +29,7 @@ def status():
         "web_origin":f"http://127.0.0.1:{int(cfg.get('port',8765))}",
         "ssh_origin":f"ssh://127.0.0.1:{sp}",
         "ssh_client_proxy":"cloudflared access ssh --hostname %h",
+        "connector_running":managed["connector_running"],
+        "token_stored":managed["token_stored"],
       }
     }
