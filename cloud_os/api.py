@@ -66,12 +66,17 @@ def require(req:Request,permission:str|None=None):
 @router.post("/login")
 def do_login(body:Login,request:Request,response:Response):
  _same_origin(request)
- key=f"{request.client.host if request.client else 'unknown'}:{body.username}"
- if not login_allowed(key): fail(429,"AUTH-002")
- t=login(body.password,body.username)
+ ip=request.client.host if request.client else "unknown"
+ username=(body.username or "").strip()
+ account_key=f"account:{username.lower()}"
+ ip_key=f"ip:{ip}"
+ if not login_allowed(account_key) or not login_allowed(ip_key):
+  record("login.throttled",username); fail(429,"AUTH-002")
+ t=login(body.password,username)
  if not t:
-  note_login_failure(key); record("login.failed",body.username); fail(401,"AUTH-001")
- clear_login_failures(key)
+  note_login_failure(account_key); note_login_failure(ip_key)
+  record("login.failed",username); fail(401,"AUTH-001")
+ clear_login_failures(account_key); clear_login_failures(ip_key)
  cfg=load()
  response.set_cookie("cloudos_session",t,httponly=True,samesite="strict",secure=bool(cfg.get("secure_cookies")),max_age=43200,path="/")
  record("login",body.username)
