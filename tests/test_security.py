@@ -579,3 +579,21 @@ def test_terminal_real_newline_and_small_screen_contract():
     assert "@media(max-width:430px)" in html
     assert "@media(max-width:360px)" in html
     assert "white-space:pre;overflow:auto" in html
+
+
+def test_dashboard_fast_navigation_and_audit_tail_contract():
+    import cloud_os
+    from pathlib import Path
+    html=Path(cloud_os.__file__).with_name("dashboard.html").read_text(encoding="utf-8")
+    assert "navGeneration" in html
+    assert "pageLoading" in html
+    assert "gen!==navGeneration" in html
+    audit=Path(cloud_os.__file__).with_name("audit.py").read_text(encoding="utf-8")
+    assert "deque(f,maxlen=limit)" in audit
+    assert "threading.RLock()" in audit
+
+def test_same_origin_rejects_cross_site_fetch():
+    import inspect, cloud_os.api as api
+    src=inspect.getsource(api._same_origin)
+    assert 'fetch_site=="cross-site"' in src
+    assert "Cross-site state-changing request blocked" in src
