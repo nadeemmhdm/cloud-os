@@ -75,23 +75,6 @@ def ensure_admin(password):
  if not cfg.get("admin_password_hash"):
   cfg["admin_password_hash"]=hash_password(password); save(cfg)
 
-def login_allowed(key):
- now=time.time()
- if _LOCKED_UNTIL.get(key,0)>now: return False
- q=_ATTEMPTS[key]
- while q and q[0] < now-WINDOW: q.popleft()
- if not q: _LOCKED_UNTIL.pop(key,None)
- return True
-
-def note_login_failure(key):
- now=time.time(); q=_ATTEMPTS[key]
- while q and q[0] < now-WINDOW: q.popleft()
- q.append(now)
- if len(q)>=LOCK_THRESHOLD: _LOCKED_UNTIL[key]=now+_cooldown_seconds(len(q))
-
-def clear_login_failures(key):
- _ATTEMPTS.pop(key,None); _LOCKED_UNTIL.pop(key,None)
-
 def login(password,username="admin"):
  cfg=load()
  if username=="admin":
