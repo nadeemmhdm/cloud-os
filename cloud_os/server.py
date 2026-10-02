@@ -28,12 +28,12 @@ async def security_headers(request:Request,call_next):
  return response
 
 @app.get("/health")
-def health(): return {"status":"ok","version":__version__}
+def health(): return {"status":"ok"}
 
 @app.get("/api/system")
 def system(req:Request):
  require(req)
- d=psutil.disk_usage("/")
+ root=os.path.abspath(os.sep) if os.name=="nt" else "/"\n    d=psutil.disk_usage(root)
  return {"cpu":psutil.cpu_percent(),"ram":psutil.virtual_memory().percent,"disk":d.percent,"uptime":int(time.time()-BOOT),"platform":platform.system(),"version":__version__}
 
 
