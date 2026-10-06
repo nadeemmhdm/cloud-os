@@ -37,7 +37,6 @@ def system(req:Request):
  d=psutil.disk_usage(root)
  return {"cpu":psutil.cpu_percent(),"ram":psutil.virtual_memory().percent,"disk":d.percent,"uptime":int(time.time()-BOOT),"platform":platform.system(),"version":__version__}
 
-
 @app.get("/api/system/details")
 def system_details(req:Request):
  require(req)
@@ -82,14 +81,27 @@ def system_details(req:Request):
   "python":platform.python_version(),
   "cloud_os_version":__version__,
   "drives":drives
-}
+ }
 
 @app.get("/cloud-os-logo.svg")
 def cloud_os_logo():
  from pathlib import Path
  return FileResponse(Path(__file__).with_name("cloud-os-logo.svg"),media_type="image/svg+xml")
 
+def _dashboard_html():
+ from pathlib import Path
+ html=Path(__file__).with_name("dashboard.html").read_text(encoding="utf-8")
+ # Labs is deliberately injected at delivery time so it stays isolated from the
+ # core dashboard bundle while the section is only a preview.
+ html=html.replace('const pages=["overview","files","terminal","backups","users","audit","integrations","settings"]', 'const pages=["overview","files","terminal","backups","users","audit","integrations","labs","settings"]',1)
+ html=html.replace("settings:'<svg", "labs:'<svg class=\"navico\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.7\"><path d=\"M9 3h6M10 3v5l-5 9a3 3 0 0 0 2.6 4h8.8a3 3 0 0 0 2.6-4l-5-9V3M8 15h8\"/></svg>',settings:'<svg",1)
+ html=html.replace('({overview,files,terminal,backups,users,audit,integrations,settings}[p])()', '({overview,files,terminal,backups,users,audit,integrations,labs,settings}[p])()',1)
+ anchor='async function settings(tab="account")'
+ labs='function labs(){q("#content").innerHTML=\'<div class="card glass wide" style="min-height:420px;display:grid;place-items:center;text-align:center"><div style="max-width:560px"><div style="width:64px;height:64px;margin:0 auto 18px;border-radius:20px;display:grid;place-items:center;background:#788deb18;border:1px solid #788deb38;font-size:28px">◈</div><div class="small" style="text-transform:uppercase;letter-spacing:.14em;color:#aeb8ff">Cloud OS Labs</div><h2 style="font-size:clamp(28px,5vw,44px);margin:10px 0">Coming soon</h2><p class="muted" style="line-height:1.7">Experimental Cloud OS features will appear here before they graduate into the main workspace. Labs is currently in preview and has no experimental features enabled.</p><span class="roleBadge" style="margin-top:12px">Preview</span></div></div>\'}async function settings(tab="account")'
+ if anchor in html:
+  html=html.replace(anchor,labs,1)
+ return html
+
 @app.get("/",response_class=HTMLResponse)
 def dashboard():
-    from pathlib import Path
-    return Path(__file__).with_name("dashboard.html").read_text(encoding="utf-8")
+ return _dashboard_html()
