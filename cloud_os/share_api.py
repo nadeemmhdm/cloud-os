@@ -1,4 +1,6 @@
+from pathlib import Path
 from fastapi import APIRouter,Request,HTTPException
+from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from .api import require,fail
 from .audit import record
@@ -15,6 +17,10 @@ class ShareCreate(BaseModel):
  expires_hours:int=168
 class UpdateInstall(BaseModel):force:bool=False
 class RoleChange(BaseModel):role:str
+@router.get('/ui/share-core.js')
+def share_core_ui():return FileResponse(Path(__file__).with_name('share-ui-core.js'),media_type='application/javascript')
+@router.get('/ui/terminal.js')
+def terminal_ui():return FileResponse(Path(__file__).with_name('terminal-ui.js'),media_type='application/javascript')
 @router.post('/shares')
 def new_share(body:ShareCreate,req:Request):
  user=require(req,'files.read')
