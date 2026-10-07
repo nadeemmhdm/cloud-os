@@ -13,10 +13,11 @@ class ShareCreate(BaseModel):
 def new_share(body:ShareCreate,req:Request):
  user=require(req,'files.read')
  try:r=create(body.path,body.password,body.expires_hours,body.allow_download)
- except FileNotFoundError:fail(404,'FILE-001','Only existing storage files can be shared')
+ except FileNotFoundError:fail(404,'FILE-001','Only existing Cloud OS storage files or folders can be shared')
  except ValueError as e:fail(400,'FILE-002',str(e))
  record('share.create',f"{user['username']}:{body.path}")
- return r
+ base=str(req.base_url).rstrip('/')
+ return {**r,'share_url':f"{base}/share/{r['token']}",'preview_url':f"{base}/share/{r['token']}/view"}
 @router.delete('/shares/{share_token}')
 def remove_share(share_token:str,req:Request):
  user=require(req,'files.read'); ok=revoke(share_token); record('share.revoke',f"{user['username']}:{share_token[:8]}"); return {'revoked':ok}
