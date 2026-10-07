@@ -18,6 +18,11 @@ def run(args,check=True):
  r=subprocess.run(args,capture_output=True,text=True,check=False)
  if check and r.returncode:raise RuntimeError((r.stderr or r.stdout or "command failed").strip()[:1200])
  return r
+def verify_cloud_os():
+ # Do not use global `pip check` here: Cloud OS can share Python with unrelated
+ # applications whose mutually incompatible pins must not make our update fail.
+ code="import cloud_os,fastapi,uvicorn,psutil,typer,multipart,asyncssh; print(cloud_os.__version__)"
+ return run([sys.executable,"-c",code]).stdout.strip()
 def restart():
  if os.name=="nt":subprocess.run(["schtasks","/Run","/TN","CloudOs"],capture_output=True,check=False)
  else:subprocess.Popen([sys.executable,"-m","cloud_os.cli","start"],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,start_new_session=True)
@@ -43,7 +48,7 @@ def main():
   stop_server(a.server_pid);save(state="installing")
   run(["git","-C",str(REPO_DIR),"fetch","--tags","origin"]);run(["git","-C",str(REPO_DIR),"checkout","--detach",a.target])
   run([sys.executable,"-m","pip","install","--upgrade","--no-deps","--disable-pip-version-check",str(REPO_DIR)])
-  run([sys.executable,"-m","pip","check"]);v=run([sys.executable,"-c","import cloud_os; print(cloud_os.__version__)"]).stdout.strip();new=run(["git","-C",str(REPO_DIR),"rev-parse","HEAD"]).stdout.strip()
+  v=verify_cloud_os();new=run(["git","-C",str(REPO_DIR),"rev-parse","HEAD"]).stdout.strip()
   save(state="success",installed_version=v,current_commit=new[:12],finished_at=now(),error=None);restart()
  except Exception as exc:
   rollback_error=None
