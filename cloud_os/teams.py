@@ -39,8 +39,9 @@ def _name(value,label):
  if not NAME_RE.fullmatch(value or ""): raise ValueError(f"Invalid {label}; use 1-64 letters, numbers, dot, underscore or hyphen")
 
 def create_user(username,password,display_name="",role="member"):
+ username=(username or "").strip(); role=(role or "member").strip().lower()
  _name(username,"username")
- if username=="admin": raise ValueError("Reserved username")
+ if username.lower()=="admin": raise ValueError("The built-in owner username 'admin' is reserved")
  if role not in DEFAULT_ROLES or role=="owner": raise ValueError("Invalid role")
  d=_load()
  if username in d["users"]: raise ValueError("User already exists")
@@ -79,7 +80,7 @@ def create_team(name):
 def teams(): return [{"name":n,**t} for n,t in _load()["teams"].items()]
 
 def add_member(team,username,role="member"):
- if role not in DEFAULT_ROLES or role=="owner": raise ValueError("Invalid role")
+ if role not in DEFAULT_ROLES or role in {"owner","admin"}: raise ValueError("Admin/owner roles cannot be granted through teams")
  d=_load()
  if team not in d["teams"] or username not in d["users"]: raise ValueError("Unknown team or user")
  d["teams"][team]["members"][username]=role; _save(d)
