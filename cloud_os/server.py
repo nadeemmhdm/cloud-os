@@ -1,10 +1,11 @@
-import platform,time,shutil,subprocess,os,socket,html,zipfile,re
+import platform,time,shutil,subprocess,os,socket,html,zipfile,re,tempfile
 from pathlib import Path
 from urllib.parse import quote
 from contextlib import asynccontextmanager
+from starlette.background import BackgroundTask
 import psutil
 from fastapi import FastAPI,Request,Form,HTTPException
-from fastapi.responses import HTMLResponse,FileResponse
+from fastapi.responses import HTMLResponse,FileResponse,RedirectResponse
 from . import __version__
 from .api import router,require
 from .share_api import router as share_router
@@ -69,22 +70,25 @@ def _share_shell(title,body):
 def shared_page(token:str):
  s=share_info(token)
  if not s:raise HTTPException(404,'Share link unavailable or expired')
- n=html.escape(s['name']);gate='<form method="post" action="/share/'+token+'/unlock"><input name="password" type="password" placeholder="Share password" required><button>Unlock preview</button></form>' if s['protected'] else '<a class="btn" href="/share/'+token+'/view">Open preview</a>'
- return _share_shell(s['name'],'<h1>'+n+'</h1><p class="m">'+html.escape(s['kind'].title())+' · '+html.escape(s['preview'])+' preview · expires automatically.</p>'+gate)
+ if not s['protected']:return RedirectResponse('/share/'+token+'/view',307)
+ n=html.escape(s['name']);gate='<form method="post" action="/share/'+token+'/unlock"><input name="password" type="password" placeholder="Share password" required><button>Unlock</button></form>'
+ return _share_shell(s['name'],'<h1>'+n+'</h1><p class="m">Protected '+html.escape(s['kind'])+' · expires automatically.</p>'+gate)
 @app.post('/share/{token}/unlock')
 def shared_unlock(token:str,password:str=Form(...)):
  r,status=share_resolve(token,password)
  if not r:raise HTTPException(401,'Invalid password or expired link')
- from fastapi.responses import RedirectResponse
  response=RedirectResponse('/share/'+token+'/view',303);response.set_cookie('cloudos_share_'+token,password,httponly=True,samesite='strict',secure=bool(load().get('secure_cookies')),max_age=3600,path='/share/'+token);return response
 def _render_shared(token,p:Path,s,child=''):
- kind=preview_type(p);name=html.escape(p.name)
+ kind=preview_type(p);name=html.escape(p.name);suffix=('?path='+quote(child)) if child else ''
  if p.is_dir():
   rows=[]
-  for x in sorted(p.iterdir(),key=lambda v:(not v.is_dir(),v.name.lower())):
+  try:children=sorted((x for x in p.iterdir() if not x.is_symlink()),key=lambda v:(not v.is_dir(),v.name.lower()))
+  except OSError:children=[]
+  for x in children:
    rel=(child.rstrip('/')+'/' if child else '')+x.name;rows.append('<a class="file" href="/share/'+token+'/view?path='+quote(rel)+'"><span>'+('Folder · ' if x.is_dir() else '')+html.escape(x.name)+'</span><span class="m">Open</span></a>')
-  return HTMLResponse(_share_shell(p.name,'<h1>'+name+'</h1><p class="m">Read-only shared folder. Internal server/storage path is not exposed.</p><div class="files">'+''.join(rows)+'</div>'))
- raw='/share/'+token+'/raw'+(('?path='+quote(child)) if child else '');dl='/share/'+token+'/download'+(('?path='+quote(child)) if child else '');actions='<div class="actions"><a class="btn" href="'+raw+'">Open raw</a>'+(('<a class="btn" href="'+dl+'">Download</a>') if s.get('allow_download',True) else '')+'</div>'
+  dl='/share/'+token+'/download'+suffix
+  return HTMLResponse(_share_shell(p.name,'<h1>'+name+'</h1><p class="m">Read-only shared folder. Internal server/storage path is not exposed.</p><div class="actions"><a class="btn" href="'+dl+'">Download folder (.zip)</a></div><div class="files">'+''.join(rows)+'</div>'))
+ raw='/share/'+token+'/raw'+suffix;dl='/share/'+token+'/download'+suffix;actions='<div class="actions"><a class="btn" href="'+dl+'">Download</a></div>'
  if kind=='video':body='<video class="viewer" controls preload="metadata" src="'+raw+'"></video>'
  elif kind=='audio':body='<audio controls src="'+raw+'"></audio>'
  elif kind=='image':body='<img class="viewer" src="'+raw+'">'
@@ -93,7 +97,7 @@ def _render_shared(token,p:Path,s,child=''):
  elif kind in {'text','code'}:
   try:text=p.read_text(encoding='utf-8')[:2_000_000]
   except (UnicodeDecodeError,OSError):text='Preview unavailable.'
-  copy='<button id="copy">Copy code</button><script>document.getElementById("copy").onclick=()=>navigator.clipboard.writeText(document.getElementById("code").innerText)</script>' if kind=='code' else '';body=copy+'<pre id="code">'+html.escape(text)+'</pre>'
+  copy='<button id="copy" title="Copy" aria-label="Copy">⧉</button><script>document.getElementById("copy").onclick=()=>navigator.clipboard.writeText(document.getElementById("code").innerText)</script>' if kind=='code' else '';body=copy+'<pre id="code">'+html.escape(text)+'</pre>'
  else:body='<p class="m">No browser preview is available for this file type.</p>'
  return HTMLResponse(_share_shell(p.name,'<h1>'+name+'</h1>'+actions+body))
 @app.get('/share/{token}/view')
@@ -111,7 +115,22 @@ def shared_raw(token:str,request:Request,path:str=''):
  if not r:raise HTTPException(401 if status=='password' else 404,'Share access denied')
  _,p=r
  if not p.is_file():raise HTTPException(400,'Not a file')
- return FileResponse(p,content_disposition_type='inline')
+ return FileResponse(p,media_type=None,content_disposition_type='inline')
+def _zip_folder(folder:Path):
+ fd,tmp=tempfile.mkstemp(prefix='cloudos-share-',suffix='.zip');os.close(fd)
+ try:
+  with zipfile.ZipFile(tmp,'w',zipfile.ZIP_DEFLATED) as z:
+   for root,dirs,files in os.walk(folder,followlinks=False):
+    rootp=Path(root);dirs[:]=[d for d in dirs if not (rootp/d).is_symlink()]
+    for filename in files:
+     f=rootp/filename
+     if f.is_symlink() or not f.is_file():continue
+     z.write(f,arcname=str(Path(folder.name)/f.relative_to(folder)))
+  return tmp
+ except Exception:
+  try:os.unlink(tmp)
+  except OSError:pass
+  raise
 @app.get('/share/{token}/download')
 def shared_download(token:str,request:Request,path:str=''):
  s=share_info(token)
@@ -119,8 +138,10 @@ def shared_download(token:str,request:Request,path:str=''):
  r,status=(resolve_child(token,path,_share_password(request,token)) if path else share_resolve(token,_share_password(request,token)))
  if not r:raise HTTPException(401 if status=='password' else 404,'Share access denied')
  _,p=r
- if not p.is_file():raise HTTPException(400,'Folders are preview-only')
- return FileResponse(p,filename=p.name)
+ if p.is_file():return FileResponse(p,filename=p.name)
+ if p.is_dir():
+  tmp=_zip_folder(p);return FileResponse(tmp,filename=p.name+'.zip',media_type='application/zip',background=BackgroundTask(os.unlink,tmp))
+ raise HTTPException(404,'Shared item unavailable')
 @app.get('/',response_class=HTMLResponse)
 def dashboard():
  page=Path(__file__).with_name('dashboard.html').read_text(encoding='utf-8')
