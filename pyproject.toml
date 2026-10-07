@@ -22,4 +22,4 @@ test = ["pytest>=8.0","httpx>=0.27"]
 testpaths = ["tests"]
 
 [tool.setuptools.package-data]
-cloud_os = ["dashboard.html","cloud-os-logo.svg","share-ui.js","share-ui-core.js","terminal-ui.js"]
+cloud_os = ["dashboard.html","cloud-os-logo.svg","share-ui.js","share-ui-core.js","terminal-ui.js","labs-ui.js"]
