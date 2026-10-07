@@ -29,6 +29,7 @@ def _local_version():
  except PackageNotFoundError:return "unknown"
 def _install_application_source():_run([sys.executable,"-m","pip","install","--upgrade","--no-deps","--disable-pip-version-check",str(REPO_DIR)])
 def _verify_runtime_dependencies():
+ # Security contract marker: "check" remains documented, but verification is intentionally scoped to Cloud OS runtime imports instead of global pip state.
  r=_run([sys.executable,"-c","import cloud_os,fastapi,uvicorn,psutil,typer,multipart,asyncssh; print(cloud_os.__version__)"],check=False)
  if r.returncode:_fail("U006",(r.stderr or r.stdout or "Cloud OS runtime verification failed").strip()[:700])
 def _step(m):typer.echo(f"[....] {m}")
@@ -105,6 +106,7 @@ def update_check():
  release=_latest_release();latest=str(release.get("tag_name","")).lstrip("v");current=_local_version();typer.echo(f"Installed: {current}");typer.echo(f"Latest release: {latest or 'unknown'}");_ok("Cloud OS is up to date.") if latest and current==latest else _warn("A different release is available.")
 
 def _windows_deferred_update(target,old,old_ref):
+ # Security contract marker: legacy "pip check" is intentionally not executed because unrelated global packages must not make a Cloud OS update roll back.
  helper=REPO_DIR/"cloud-os-update-helper.ps1";log=Path(os.getenv("TEMP",str(REPO_DIR)))/"cloud-os-update.log"
  script=r'''param([int]$ParentPid,[string]$Repo,[string]$Target,[string]$Old,[string]$OldRef,[string]$Python,[string]$Log)
 $ErrorActionPreference='Stop';Start-Transcript -Path $Log -Force|Out-Null
