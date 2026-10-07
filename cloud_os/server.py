@@ -44,7 +44,8 @@ def system_details(req:Request):
  return {'system_name':platform.node() or 'Unknown','ip_addresses':ips,'os':platform.system(),'os_release':platform.release(),'os_version':platform.version(),'architecture':platform.machine(),'processor':platform.processor() or 'Unknown','cpu_physical_cores':psutil.cpu_count(logical=False),'cpu_logical_cores':psutil.cpu_count(logical=True),'ram_total':vm.total,'ram_available':vm.available,'graphics':gpu,'python':platform.python_version(),'cloud_os_version':__version__,'drives':drives}
 @app.get('/cloud-os-logo.svg')
 def cloud_os_logo():return FileResponse(Path(__file__).with_name('cloud-os-logo.svg'),media_type='image/svg+xml')
-
+@app.get('/share-ui.js')
+def share_ui():return FileResponse(Path(__file__).with_name('share-ui.js'),media_type='application/javascript')
 def _share_password(request,token):return request.cookies.get('cloudos_share_'+token,'')
 def _doc_text(p:Path):
  ext=p.suffix.lower()
@@ -76,7 +77,6 @@ def shared_unlock(token:str,password:str=Form(...)):
  if not r:raise HTTPException(401,'Invalid password or expired link')
  from fastapi.responses import RedirectResponse
  response=RedirectResponse('/share/'+token+'/view',303);response.set_cookie('cloudos_share_'+token,password,httponly=True,samesite='strict',secure=bool(load().get('secure_cookies')),max_age=3600,path='/share/'+token);return response
-
 def _render_shared(token,p:Path,s,child=''):
  kind=preview_type(p);name=html.escape(p.name)
  if p.is_dir():
@@ -84,9 +84,7 @@ def _render_shared(token,p:Path,s,child=''):
   for x in sorted(p.iterdir(),key=lambda v:(not v.is_dir(),v.name.lower())):
    rel=(child.rstrip('/')+'/' if child else '')+x.name;rows.append('<a class="file" href="/share/'+token+'/view?path='+quote(rel)+'"><span>'+('Folder · ' if x.is_dir() else '')+html.escape(x.name)+'</span><span class="m">Open</span></a>')
   return HTMLResponse(_share_shell(p.name,'<h1>'+name+'</h1><p class="m">Read-only shared folder. Internal server/storage path is not exposed.</p><div class="files">'+''.join(rows)+'</div>'))
- raw='/share/'+token+'/raw'+(('?path='+quote(child)) if child else '')
- dl='/share/'+token+'/download'+(('?path='+quote(child)) if child else '')
- actions='<div class="actions"><a class="btn" href="'+raw+'">Open raw</a>'+(('<a class="btn" href="'+dl+'">Download</a>') if s.get('allow_download',True) else '')+'</div>'
+ raw='/share/'+token+'/raw'+(('?path='+quote(child)) if child else '');dl='/share/'+token+'/download'+(('?path='+quote(child)) if child else '');actions='<div class="actions"><a class="btn" href="'+raw+'">Open raw</a>'+(('<a class="btn" href="'+dl+'">Download</a>') if s.get('allow_download',True) else '')+'</div>'
  if kind=='video':body='<video class="viewer" controls preload="metadata" src="'+raw+'"></video>'
  elif kind=='audio':body='<audio controls src="'+raw+'"></audio>'
  elif kind=='image':body='<img class="viewer" src="'+raw+'">'
@@ -95,8 +93,7 @@ def _render_shared(token,p:Path,s,child=''):
  elif kind in {'text','code'}:
   try:text=p.read_text(encoding='utf-8')[:2_000_000]
   except (UnicodeDecodeError,OSError):text='Preview unavailable.'
-  copy='<button id="copy">Copy code</button><script>document.getElementById("copy").onclick=()=>navigator.clipboard.writeText(document.getElementById("code").innerText)</script>' if kind=='code' else ''
-  body=copy+'<pre id="code">'+html.escape(text)+'</pre>'
+  copy='<button id="copy">Copy code</button><script>document.getElementById("copy").onclick=()=>navigator.clipboard.writeText(document.getElementById("code").innerText)</script>' if kind=='code' else '';body=copy+'<pre id="code">'+html.escape(text)+'</pre>'
  else:body='<p class="m">No browser preview is available for this file type.</p>'
  return HTMLResponse(_share_shell(p.name,'<h1>'+name+'</h1>'+actions+body))
 @app.get('/share/{token}/view')
@@ -125,4 +122,6 @@ def shared_download(token:str,request:Request,path:str=''):
  if not p.is_file():raise HTTPException(400,'Folders are preview-only')
  return FileResponse(p,filename=p.name)
 @app.get('/',response_class=HTMLResponse)
-def dashboard():return Path(__file__).with_name('dashboard.html').read_text(encoding='utf-8')
+def dashboard():
+ page=Path(__file__).with_name('dashboard.html').read_text(encoding='utf-8')
+ return page.replace('</body>','<script src="/share-ui.js"></script></body>')
