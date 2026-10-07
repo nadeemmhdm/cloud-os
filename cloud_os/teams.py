@@ -6,13 +6,17 @@ from .auth import hash_password,verify
 
 DB=APP_DIR/"access.json"
 NAME_RE=re.compile(r"^[A-Za-z0-9_.-]{1,64}$")
+# Sidebar/page access is derived from these capabilities. Owner remains the only
+# unrestricted administrator. The legacy admin role is kept for existing accounts
+# but cannot be assigned to newly created users.
 DEFAULT_ROLES={
  "owner":["*"],
- "admin":["files.read","files.write","terminal","backups","network","audit","teams.manage","settings"],
- "operator":["files.read","files.write","terminal","backups","network"],
+ "admin":["files.read","files.write","terminal","backups","backups.read","backups.write","network","audit","teams.manage","settings"],
+ "operator":["files.read","files.write","terminal","backups","backups.read","backups.write","network"],
  "member":["files.read","files.write"],
- "viewer":["files.read"]
+ "viewer":["files.read","backups.read"]
 }
+ASSIGNABLE_ROLES={"operator","member","viewer"}
 
 def _load():
  APP_DIR.mkdir(parents=True,exist_ok=True)
@@ -45,7 +49,7 @@ def create_user(username,password,display_name="",role="member"):
  username=(username or "").strip(); role=(role or "member").strip().lower()
  _name(username,"username")
  if username.lower()=="admin": raise ValueError("The built-in owner username 'admin' is reserved")
- if role not in DEFAULT_ROLES or role=="owner": raise ValueError("Invalid role")
+ if role not in ASSIGNABLE_ROLES: raise ValueError("Invalid role; choose operator, member or viewer")
  d=_load()
  if _key(d["users"],username): raise ValueError("User already exists")
  d["users"][username]={"id":secrets.token_hex(8),"display_name":(display_name or username)[:128],"password_hash":hash_password(password),"role":role,"disabled":False,"created_at":datetime.now(timezone.utc).isoformat(),"first_login_at":None,"last_login_at":None}
@@ -73,6 +77,12 @@ def set_disabled(username,disabled):
  d=_load();key=_key(d["users"],username)
  if not key: raise ValueError("Unknown user")
  d["users"][key]["disabled"]=bool(disabled); _save(d)
+def set_role(username,role):
+ role=(role or "").strip().lower()
+ if role not in ASSIGNABLE_ROLES: raise ValueError("Invalid role; choose operator, member or viewer")
+ d=_load();key=_key(d["users"],username)
+ if not key: raise ValueError("Unknown user")
+ d["users"][key]["role"]=role;_save(d);return public_user(key,d["users"][key])
 def users(): return [public_user(n,u) for n,u in _load()["users"].items()]
 
 def create_team(name):
@@ -84,7 +94,7 @@ def teams(): return [{"name":n,**t} for n,t in _load()["teams"].items()]
 
 def add_member(team,username,role="member"):
  role=(role or "member").strip().lower()
- if role not in DEFAULT_ROLES or role in {"owner","admin"}: raise ValueError("Admin/owner roles cannot be granted through teams")
+ if role not in ASSIGNABLE_ROLES: raise ValueError("Only operator, member or viewer can be assigned")
  d=_load();team_key=_key(d["teams"],team);user_key=_key(d["users"],username)
  if not team_key: raise ValueError("Unknown team")
  if not user_key: raise ValueError("Unknown user; create the user account before adding it to a team")
