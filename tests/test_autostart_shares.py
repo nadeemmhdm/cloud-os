@@ -45,5 +45,5 @@ def test_share_preview_features_are_packaged():
  root=Path(cloud_os.__file__).parent
  assert (root/'share-ui.js').exists()
  src=inspect.getsource(server)
- for marker in ("<video class=\"viewer\" controls","kind=='pdf'","aria-label=\"Copy code\"","_doc_text","Storage location is private"):
+ for marker in ("<video class=\"viewer\" controls","kind=='pdf'","aria-label=\"Copy\"","_doc_text","Storage location is private"):
   assert marker in src
