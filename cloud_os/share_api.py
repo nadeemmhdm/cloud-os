@@ -3,7 +3,8 @@ from pydantic import BaseModel
 from .api import require,fail
 from .audit import record
 from .shares import create,revoke
-from .updater import check_now,start_install,update_status
+from .updater import check_now
+from .update_control import start_install,control_status
 router=APIRouter(prefix='/api')
 class ShareCreate(BaseModel):
  path:str
@@ -29,4 +30,4 @@ def install_update(body:UpdateInstall,req:Request):
  except RuntimeError as exc:raise HTTPException(409,detail={'code':'UPDATE-001','message':str(exc)})
  record('update.install',f"{user['username']}:force={body.force}");return {'ok':True,'message':'Background update started. Cloud OS will restart automatically after success or rollback.','status':result}
 @router.get('/update/progress')
-def update_progress(req:Request):require(req);return update_status()
+def update_progress(req:Request):require(req);return control_status()
