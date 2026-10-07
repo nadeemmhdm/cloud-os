@@ -1,4 +1,4 @@
-import platform,time,shutil,subprocess,os,socket,html,zipfile,re,tempfile
+import platform,time,shutil,subprocess,os,socket,html,zipfile,re,tempfile,mimetypes
 from pathlib import Path
 from urllib.parse import quote
 from contextlib import asynccontextmanager
@@ -11,6 +11,7 @@ from .api import router,require
 from .share_api import router as share_router
 from .updater import start_update_checker
 from .shares import info as share_info,resolve as share_resolve,resolve_child,preview_type
+from .files import safe_path
 from .config import load
 @asynccontextmanager
 async def lifespan(app):start_update_checker();yield
@@ -66,13 +67,40 @@ def _doc_text(p:Path):
  except (OSError,zipfile.BadZipFile,KeyError):return ''
 def _share_shell(title,body):
  return '<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><title>'+html.escape(title)+' · Cloud OS</title><style>body{margin:0;background:#070910;color:#eef;font:15px system-ui}.wrap{width:min(1050px,92vw);margin:35px auto}.c{padding:24px;border:1px solid #ffffff18;border-radius:22px;background:#121624}.top{display:flex;align-items:center;gap:14px;margin-bottom:20px}.m{color:#9aa4bb}.btn,button,input{padding:11px 13px;border-radius:10px;border:1px solid #ffffff22;background:#0b0e17;color:white}.btn{display:inline-block;text-decoration:none}.files{display:grid;gap:8px}.file{display:flex;justify-content:space-between;gap:12px;padding:12px;border:1px solid #ffffff12;border-radius:12px;text-decoration:none;color:white}.viewer{width:100%;max-height:72vh;border:0;border-radius:14px;background:#05070c}video.viewer{height:auto}img.viewer{object-fit:contain}pre{white-space:pre-wrap;overflow:auto;max-height:72vh;padding:18px;background:#05070c;border-radius:14px;font:13px ui-monospace,monospace}.actions{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}</style></head><body><main class="wrap"><div class="c"><div class="top"><img src="/cloud-os-logo.svg" width="48"><div><b>Cloud OS protected share</b><div class="m">Storage location is private</div></div></div>'+body+'</div></main></body></html>'
+def _preview_shell(title,body):return _share_shell(title,body)
+@app.get('/preview',response_class=HTMLResponse)
+def authenticated_preview(path:str,request:Request):
+ require(request,'files.read')
+ try:p=safe_path(path)
+ except ValueError:raise HTTPException(400,'Invalid file path')
+ if not p.is_file():raise HTTPException(404,'File unavailable')
+ kind=preview_type(p);name=html.escape(p.name);raw='/preview/raw?path='+quote(path);download='/api/download?path='+quote(path);actions='<div class="actions"><a class="btn" href="'+download+'">Download</a></div>'
+ if kind=='video':body='<video class="viewer" controls preload="metadata" src="'+raw+'"></video>'
+ elif kind=='audio':body='<audio controls src="'+raw+'"></audio>'
+ elif kind=='image':body='<img class="viewer" src="'+raw+'" alt="'+name+'">'
+ elif kind=='pdf':body='<iframe class="viewer" style="height:78vh" src="'+raw+'"></iframe>'
+ elif kind=='document':body='<pre>'+html.escape(_doc_text(p) or 'Preview text is unavailable for this document. Download it to open in the native application.')+'</pre>'
+ elif kind in {'text','code'}:
+  try:text=p.read_text(encoding='utf-8')[:2_000_000]
+  except (UnicodeDecodeError,OSError):text='Preview unavailable.'
+  body='<pre>'+html.escape(text)+'</pre>'
+ else:body='<p class="m">This format does not have an in-browser preview.</p>'
+ return _preview_shell(p.name,'<h1>'+name+'</h1>'+actions+body)
+@app.get('/preview/raw')
+def authenticated_preview_raw(path:str,request:Request):
+ require(request,'files.read')
+ try:p=safe_path(path)
+ except ValueError:raise HTTPException(400,'Invalid file path')
+ if not p.is_file():raise HTTPException(404,'File unavailable')
+ mime=mimetypes.guess_type(p.name)[0] or 'application/octet-stream'
+ return FileResponse(p,media_type=mime,content_disposition_type='inline')
 @app.get('/share/{token}',response_class=HTMLResponse)
 def shared_page(token:str):
  s=share_info(token)
  if not s:raise HTTPException(404,'Share link unavailable or expired')
  if not s['protected']:return RedirectResponse('/share/'+token+'/view',307)
- n=html.escape(s['name']);gate='<form method="post" action="/share/'+token+'/unlock"><input name="password" type="password" placeholder="Share password" required><button>Unlock</button></form>'
- return _share_shell(s['name'],'<h1>'+n+'</h1><p class="m">Protected '+html.escape(s['kind'])+' · expires automatically.</p>'+gate)
+ n=html.escape(s['name']);expiry='does not expire' if s.get('expires_at') is None else 'expires automatically';gate='<form method="post" action="/share/'+token+'/unlock"><input name="password" type="password" placeholder="Share password" required><button>Unlock</button></form>'
+ return _share_shell(s['name'],'<h1>'+n+'</h1><p class="m">Protected '+html.escape(s['kind'])+' · '+expiry+'.</p>'+gate)
 @app.post('/share/{token}/unlock')
 def shared_unlock(token:str,password:str=Form(...)):
  r,status=share_resolve(token,password)
@@ -115,7 +143,8 @@ def shared_raw(token:str,request:Request,path:str=''):
  if not r:raise HTTPException(401 if status=='password' else 404,'Share access denied')
  _,p=r
  if not p.is_file():raise HTTPException(400,'Not a file')
- return FileResponse(p,media_type=None,content_disposition_type='inline')
+ mime=mimetypes.guess_type(p.name)[0] or 'application/octet-stream'
+ return FileResponse(p,media_type=mime,content_disposition_type='inline')
 def _zip_folder(folder:Path):
  fd,tmp=tempfile.mkstemp(prefix='cloudos-share-',suffix='.zip');os.close(fd)
  try:
@@ -145,11 +174,9 @@ def shared_download(token:str,request:Request,path:str=''):
 @app.get('/',response_class=HTMLResponse)
 def dashboard():
  page=Path(__file__).with_name('dashboard.html').read_text(encoding='utf-8')
- # dashboard.html still contains an older compact mobile-sidebar rule. Override it
- # at response time so mobile uses the full viewport and the hamburger menu.
  mobile_visibility_fix='''<style id="mobile-layout-fix">
 #app.hidden{display:none!important}#login.hidden{display:none!important}
-@media(max-width:760px){html,body{width:100%;min-height:100%;overflow-x:hidden}.app,.app.sideHidden{display:block!important;width:100%!important;min-width:0!important;min-height:100dvh!important;padding:0!important;overflow-x:hidden!important}.side,.app.sideHidden .side{display:none!important}.main,.app.sideHidden .main{display:block!important;width:100%!important;max-width:none!important;min-width:0!important;margin:0!important;padding:18px 14px calc(76px + env(safe-area-inset-bottom))!important;overflow-x:hidden!important}.hamb{display:block!important}.mobile{display:none!important;position:fixed!important;top:72px!important;right:14px!important;left:auto!important;bottom:auto!important;width:min(280px,calc(100% - 28px))!important;z-index:60!important;border-radius:19px!important;padding:8px!important;flex-direction:column!important}.mobile.open{display:flex!important}.grid{grid-template-columns:minmax(0,1fr)!important}.card,.wide,.row{min-width:0!important;max-width:100%!important}.chatfab{right:14px!important;bottom:calc(14px + env(safe-area-inset-bottom))!important}.chatbox{left:14px!important;right:14px!important;width:auto!important;bottom:calc(78px + env(safe-area-inset-bottom))!important}.modalShade{padding:14px!important}}
-@media(max-width:430px){.main,.app.sideHidden .main{padding:14px 10px calc(70px + env(safe-area-inset-bottom))!important}.top h1{font-size:28px}.chatbox{left:10px!important;right:10px!important}.modalShade{padding:10px!important}}
+@media(max-width:760px){html,body{width:100%;min-height:100%;overflow-x:hidden}.app,.app.sideHidden{display:grid!important;grid-template-columns:64px minmax(0,1fr)!important;width:100%!important;min-width:0!important;min-height:100dvh!important;padding:0!important;overflow-x:hidden!important}.side,.app.sideHidden .side{display:flex!important;position:sticky!important;top:0!important;width:64px!important;height:100dvh!important;border-radius:0!important;padding:10px 7px!important}.main,.app.sideHidden .main{display:block!important;width:100%!important;max-width:none!important;min-width:0!important;margin:0!important;padding:18px 10px calc(76px + env(safe-area-inset-bottom))!important;overflow-x:hidden!important}.hamb,.mobile{display:none!important}.grid{grid-template-columns:minmax(0,1fr)!important}.card,.wide,.row{min-width:0!important;max-width:100%!important}.chatfab{right:12px!important;bottom:calc(12px + env(safe-area-inset-bottom))!important}.chatbox{left:76px!important;right:10px!important;width:auto!important;bottom:calc(72px + env(safe-area-inset-bottom))!important}.modalShade{padding:10px 10px 10px 74px!important}}
+@media(max-width:430px){.app,.app.sideHidden{grid-template-columns:56px minmax(0,1fr)!important}.side,.app.sideHidden .side{width:56px!important;padding:8px 4px!important}.main,.app.sideHidden .main{padding:14px 8px calc(68px + env(safe-area-inset-bottom))!important}.top h1{font-size:27px}.chatbox{left:64px!important;right:8px!important}.modalShade{padding-left:64px!important}}
 </style>'''
  return page.replace('</head>',mobile_visibility_fix+'</head>').replace('</body>','<script src="/share-ui.js"></script></body>')
