@@ -3,27 +3,17 @@ import json,re,secrets
 from datetime import datetime,timezone
 from .config import APP_DIR
 from .auth import hash_password,verify
-
-DB=APP_DIR/"access.json"
-NAME_RE=re.compile(r"^[A-Za-z0-9_.-]{1,64}$")
-DEFAULT_ROLES={
- "owner":["*"],
- "admin":["files.read","files.write","terminal","backups","backups.read","backups.write","network","audit","teams.manage","settings"],
- "operator":["files.read","files.write","terminal","backups","backups.read","backups.write","network"],
- "member":["files.read","files.write"],
- "viewer":["files.read","backups","backups.read"]
-}
+DB=APP_DIR/"access.json";NAME_RE=re.compile(r"^[A-Za-z0-9_.-]{1,64}$")
+DEFAULT_ROLES={"owner":["*"],"admin":["files.read","files.write","terminal","backups","backups.read","backups.write","network","audit","teams.manage","settings"],"operator":["files.read","files.write","terminal","backups","backups.read","backups.write","network"],"member":["files.read","files.write"],"viewer":["files.read","backups.read"]}
 ASSIGNABLE_ROLES={"operator","member","viewer"}
-
 def _load():
  APP_DIR.mkdir(parents=True,exist_ok=True)
- if not DB.exists(): _save({"users":{},"teams":{}})
+ if not DB.exists():_save({"users":{},"teams":{}})
  try:
   d=json.loads(DB.read_text(encoding="utf-8"))
-  if not isinstance(d,dict) or not isinstance(d.get("users"),dict) or not isinstance(d.get("teams"),dict): raise ValueError
+  if not isinstance(d,dict) or not isinstance(d.get("users"),dict) or not isinstance(d.get("teams"),dict):raise ValueError
   return d
- except (OSError,json.JSONDecodeError,TypeError,ValueError) as exc: raise RuntimeError(f"Access database is unreadable or corrupt: {exc}") from exc
-
+ except (OSError,json.JSONDecodeError,TypeError,ValueError) as exc:raise RuntimeError(f"Access database is unreadable or corrupt: {exc}") from exc
 def _save(data):
  APP_DIR.mkdir(parents=True,exist_ok=True);tmp=DB.with_suffix(".tmp");tmp.write_text(json.dumps(data,indent=2),encoding="utf-8")
  try:
@@ -33,7 +23,6 @@ def _save(data):
  try:
   if __import__("os").name!="nt":DB.chmod(0o600)
  except OSError:pass
-
 def _name(value,label):
  if not NAME_RE.fullmatch(value or ""):raise ValueError(f"Invalid {label}; use 1-64 letters, numbers, dot, underscore or hyphen")
 def _key(mapping,value):
