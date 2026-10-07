@@ -16,15 +16,19 @@ def _hash(v):return hashlib.sha256(v.encode()).hexdigest()
 def create(relative,password='',expires_hours=168,allow_download=True):
  p=safe_path(relative)
  if not p.exists() or p==safe_path(''):raise FileNotFoundError(relative)
- token=secrets.token_urlsafe(32);now=int(time.time());d=_load();d[token]={'path':relative,'password_hash':_hash(password) if password else '','created_at':now,'expires_at':now+max(1,min(int(expires_hours),8760))*3600,'allow_download':bool(allow_download)};_save(d)
- return {'token':token,'expires_at':d[token]['expires_at'],'protected':bool(password),'allow_download':bool(allow_download),'kind':'folder' if p.is_dir() else 'file'}
+ token=secrets.token_urlsafe(32);now=int(time.time());d=_load()
+ hours=int(expires_hours);expires_at=None if hours<=0 else now+max(1,min(hours,8760))*3600
+ d[token]={'path':relative,'password_hash':_hash(password) if password else '','created_at':now,'expires_at':expires_at,'allow_download':bool(allow_download)};_save(d)
+ return {'token':token,'expires_at':expires_at,'protected':bool(password),'allow_download':bool(allow_download),'kind':'folder' if p.is_dir() else 'file'}
 def revoke(token):
  d=_load();ok=token in d
  if ok:d.pop(token);_save(d)
  return ok
 def _entry(token):
  s=_load().get(token)
- if not s or int(s.get('expires_at',0))<int(time.time()):return None
+ if not s:return None
+ expires=s.get('expires_at')
+ if expires is not None and int(expires)<int(time.time()):return None
  try:p=safe_path(s['path'])
  except ValueError:return None
  return (s,p) if p.exists() else None
@@ -42,7 +46,7 @@ def info(token):
  item=_entry(token)
  if not item:return None
  s,p=item;mime='inode/directory' if p.is_dir() else (mimetypes.guess_type(p.name)[0] or 'application/octet-stream')
- return {'name':p.name,'size':0 if p.is_dir() else p.stat().st_size,'mime':mime,'preview':preview_type(p),'kind':'folder' if p.is_dir() else 'file','protected':bool(s.get('password_hash')),'expires_at':s['expires_at'],'allow_download':bool(s.get('allow_download',True))}
+ return {'name':p.name,'size':0 if p.is_dir() else p.stat().st_size,'mime':mime,'preview':preview_type(p),'kind':'folder' if p.is_dir() else 'file','protected':bool(s.get('password_hash')),'expires_at':s.get('expires_at'),'allow_download':bool(s.get('allow_download',True))}
 def resolve_child(token,child,password=''):
  r,status=resolve(token,password)
  if not r:return None,status
