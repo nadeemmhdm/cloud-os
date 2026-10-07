@@ -1,0 +1,14 @@
+# Python build/install artifacts
+build/
+dist/
+*.egg-info/
+__pycache__/
+*.py[cod]
+
+# Cloud OS generated Windows runtime/update helpers
+cloud-os-update-helper.ps1
+start-cloud-os.ps1
+
+# Local runtime/log artifacts
+*.log
+.pytest_cache/
