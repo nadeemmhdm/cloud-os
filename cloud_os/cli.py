@@ -44,8 +44,7 @@ def _latest_release():
 
 def _windows_autostart(start_now=True):
  if os.name!="nt":_fail("SVC01","Windows boot autostart is only available on Windows.")
- home=Path(os.getenv("CLOUD_OS_HOME",str(Path.home()/".cloud-os"))).resolve(); runner=REPO_DIR/"start-cloud-os.ps1"; log=home/"boot.log";home.mkdir(parents=True,exist_ok=True);REPO_DIR.mkdir(parents=True,exist_ok=True)
- # Task runs under the installing account with S4U: no stored Windows password and no SYSTEM/admin shell inheritance.
+ home=Path(os.getenv("CLOUD_OS_HOME",str(Path.home()/".cloud-os"))).resolve();runner=REPO_DIR/"start-cloud-os.ps1";log=home/"boot.log";home.mkdir(parents=True,exist_ok=True);REPO_DIR.mkdir(parents=True,exist_ok=True)
  script=f'''$ErrorActionPreference="Continue"\n$env:CLOUD_OS_HOME="{home}"\n$log="{log}"\nfor($i=0;$i -lt 12;$i++){{\n  try {{ & "{sys.executable}" -m cloud_os.cli start *>> $log; if($LASTEXITCODE -eq 0){{break}} }} catch {{ $_ | Out-File -Append $log }}\n  Start-Sleep -Seconds 10\n}}\n'''
  runner.write_text(script,encoding="utf-8")
  ps=f'''$a=New-ScheduledTaskAction -Execute 'powershell.exe' -Argument '-NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -WindowStyle Hidden -File "{runner}"';$t=New-ScheduledTaskTrigger -AtStartup;$p=New-ScheduledTaskPrincipal -UserId ([System.Security.Principal.WindowsIdentity]::GetCurrent().Name) -LogonType S4U -RunLevel Limited;$s=New-ScheduledTaskSettingsSet -RestartCount 20 -RestartInterval (New-TimeSpan -Minutes 1) -StartWhenAvailable -ExecutionTimeLimit ([TimeSpan]::Zero) -MultipleInstances IgnoreNew;Register-ScheduledTask -TaskName 'CloudOs' -Action $a -Trigger $t -Principal $p -Settings $s -Description 'Cloud OS boot service: web, SSH and configured Cloudflare tunnel' -Force|Out-Null;'''
@@ -77,7 +76,6 @@ def owner_recover():
 
 @app.command()
 def autostart():
- """Install/repair boot-time Cloud OS startup and start it now."""
  runner,log=_windows_autostart(True);_ok("Windows boot autostart installed/repaired.");typer.echo(f"Runner: {runner}");typer.echo(f"Boot log: {log}");typer.echo("Cloud OS, SSH and a configured Cloudflare connector will start at Windows boot before desktop sign-in.")
 
 @app.command("autostart-status")
@@ -118,16 +116,17 @@ try { Wait-Process -Id $ParentPid -ErrorAction SilentlyContinue;try{Stop-Schedul
 def update(source:str=typer.Option("release",help="release or main")):
  if not shutil.which("git"):_fail("U001","Git is required for updates.")
  if not(REPO_DIR/".git").exists():_fail("U002",f"Cloud OS source checkout was not found at {REPO_DIR}.")
- tracked_dirty=_run(["git","-C",str(REPO_DIR),"diff","--name-only","HEAD"]).stdout.strip()
+ tracked_dirty=_run(["git","-C",str(REPO_DIR),"status","--porcelain","--untracked-files=normal"]).stdout.strip()
  if tracked_dirty:_fail("U005",f"Update stopped because source has local changes: {tracked_dirty[:500]}")
  old=_run(["git","-C",str(REPO_DIR),"rev-parse","HEAD"]).stdout.strip();old_ref=_run(["git","-C",str(REPO_DIR),"symbolic-ref","--quiet","--short","HEAD"],check=False).stdout.strip();current=_local_version()
  if source=="release":target=str(_latest_release().get("tag_name","")).strip();label=target.lstrip("v")
  elif source=="main":target="origin/main";label="main"
  else:_fail("U004","Unknown update source.")
  _run(["git","-C",str(REPO_DIR),"fetch","--tags","origin"])
- if os.name=="nt":_windows_deferred_update(target,old,old_ref)
+ if os.name=="nt": _windows_deferred_update(target,old,old_ref)
  try:_run(["git","-C",str(REPO_DIR),"checkout","--detach",target]);_install_application_source();_run([sys.executable,"-c","import cloud_os; print(cloud_os.__version__)"]);_verify_runtime_dependencies()
  except typer.Exit:
+  typer.secho("[ROLLBACK] Restoring previous Cloud OS revision.",fg=typer.colors.YELLOW)
   _run(["git","-C",str(REPO_DIR),"checkout","--detach",old],check=False)
   if old_ref:_run(["git","-C",str(REPO_DIR),"checkout",old_ref],check=False)
   _run([sys.executable,"-m","pip","install","--upgrade","--no-deps",str(REPO_DIR)],check=False);raise
