@@ -29,8 +29,8 @@ def _local_version():
  except PackageNotFoundError:return "unknown"
 def _install_application_source():_run([sys.executable,"-m","pip","install","--upgrade","--no-deps","--disable-pip-version-check",str(REPO_DIR)])
 def _verify_runtime_dependencies():
- r=_run([sys.executable,"-m","pip","check"],check=False)
- if r.returncode:_warn("Python dependency check reported an issue: "+(r.stdout or r.stderr or "dependency verification failed").strip()[:700])
+ r=_run([sys.executable,"-c","import cloud_os,fastapi,uvicorn,psutil,typer,multipart,asyncssh; print(cloud_os.__version__)"],check=False)
+ if r.returncode:_fail("U006",(r.stderr or r.stdout or "Cloud OS runtime verification failed").strip()[:700])
 def _step(m):typer.echo(f"[....] {m}")
 def _done(m):typer.secho(f"[DONE] {m}",fg=typer.colors.GREEN)
 def _latest_release():
@@ -108,9 +108,9 @@ def _windows_deferred_update(target,old,old_ref):
  helper=REPO_DIR/"cloud-os-update-helper.ps1";log=Path(os.getenv("TEMP",str(REPO_DIR)))/"cloud-os-update.log"
  script=r'''param([int]$ParentPid,[string]$Repo,[string]$Target,[string]$Old,[string]$OldRef,[string]$Python,[string]$Log)
 $ErrorActionPreference='Stop';Start-Transcript -Path $Log -Force|Out-Null
-try { Wait-Process -Id $ParentPid -ErrorAction SilentlyContinue;try{Stop-ScheduledTask -TaskName 'CloudOs' -ErrorAction SilentlyContinue}catch{};Start-Sleep -Seconds 2;$deadline=(Get-Date).AddSeconds(20);while((Get-Process -Name 'cloud-os' -ErrorAction SilentlyContinue)-and(Get-Date)-lt $deadline){Start-Sleep -Milliseconds 500};if(Get-Process -Name 'cloud-os' -ErrorAction SilentlyContinue){throw 'cloud-os.exe is still running'};git -C $Repo checkout --detach $Target;if($LASTEXITCODE-ne 0){throw 'git checkout failed'};& $Python -m pip install --upgrade --no-deps --disable-pip-version-check $Repo;if($LASTEXITCODE-ne 0){throw 'package install failed'};& $Python -m pip check;if($LASTEXITCODE-ne 0){throw 'dependency check failed'};& $Python -c "import cloud_os; print(cloud_os.__version__)";if($LASTEXITCODE-ne 0){throw 'verification failed'};try{Start-ScheduledTask -TaskName 'CloudOs'}catch{};Write-Host '[SUCCESS] Cloud OS update applied.' -ForegroundColor Green
+try { Wait-Process -Id $ParentPid -ErrorAction SilentlyContinue;try{Stop-ScheduledTask -TaskName 'CloudOs' -ErrorAction SilentlyContinue}catch{};Start-Sleep -Seconds 2;$deadline=(Get-Date).AddSeconds(20);while((Get-Process -Name 'cloud-os' -ErrorAction SilentlyContinue)-and(Get-Date)-lt $deadline){Start-Sleep -Milliseconds 500};if(Get-Process -Name 'cloud-os' -ErrorAction SilentlyContinue){throw 'cloud-os.exe is still running'};git -C $Repo checkout --detach $Target;if($LASTEXITCODE-ne 0){throw 'git checkout failed'};& $Python -m pip install --upgrade --no-deps --disable-pip-version-check $Repo;if($LASTEXITCODE-ne 0){throw 'package install failed'};& $Python -c "import cloud_os,fastapi,uvicorn,psutil,typer,multipart,asyncssh; print(cloud_os.__version__)";if($LASTEXITCODE-ne 0){throw 'Cloud OS runtime verification failed'};try{Start-ScheduledTask -TaskName 'CloudOs'}catch{};Write-Host '[SUCCESS] Cloud OS update applied.' -ForegroundColor Green
 } catch { Write-Host '[ROLLBACK] Restoring previous revision.' -ForegroundColor Yellow;git -C $Repo checkout --detach $Old|Out-Null;if($OldRef){git -C $Repo checkout $OldRef|Out-Null};& $Python -m pip install --upgrade --no-deps --disable-pip-version-check $Repo;try{Start-ScheduledTask -TaskName 'CloudOs'}catch{};Write-Host '[ERROR] Update failed. Log:' $Log -ForegroundColor Red } finally {Stop-Transcript|Out-Null}'''
- helper.write_text(script,encoding="utf-8");cmd=["powershell.exe","-NoProfile","-ExecutionPolicy","Bypass","-File",str(helper),"-ParentPid",str(os.getpid()),"-Repo",str(REPO_DIR),"-Target",target,"-Old",old,"-OldRef",old_ref or "","-Python",sys.executable,"-Log",str(log)];subprocess.Popen(cmd,creationflags=getattr(subprocess,"CREATE_NEW_CONSOLE",0),close_fds=True);typer.secho("[STAGED] Windows update prepared safely.",fg=typer.colors.GREEN,bold=True);raise typer.Exit(0)
+ helper.write_text(script,encoding="utf-8");cmd=["powershell.exe","-NoProfile","-ExecutionPolicy","Bypass","-File",str(helper),"-ParentPid",str(os.getpid()),"-Repo",str(REPO_DIR),"-Target",target,"-Old",old,"-OldRef",old_ref or "","-Python",sys.executable,"-Log",str(log)];subprocess.Popen(cmd,creationflags=getattr(subprocess,"CREATE_NEW_CONSOLE",0),close_fds=True);typer.secho("[STAGED] Windows update prepared safely. The updater will finish in the background and restart Cloud OS.",fg=typer.colors.GREEN,bold=True);raise typer.Exit(0)
 
 @app.command()
 def update(source:str=typer.Option("release",help="release or main")):
@@ -124,7 +124,7 @@ def update(source:str=typer.Option("release",help="release or main")):
  else:_fail("U004","Unknown update source.")
  _run(["git","-C",str(REPO_DIR),"fetch","--tags","origin"])
  if os.name=="nt": _windows_deferred_update(target,old,old_ref)
- try:_run(["git","-C",str(REPO_DIR),"checkout","--detach",target]);_install_application_source();_run([sys.executable,"-c","import cloud_os; print(cloud_os.__version__)"]);_verify_runtime_dependencies()
+ try:_run(["git","-C",str(REPO_DIR),"checkout","--detach",target]);_install_application_source();_verify_runtime_dependencies()
  except typer.Exit:
   typer.secho("[ROLLBACK] Restoring previous Cloud OS revision.",fg=typer.colors.YELLOW)
   _run(["git","-C",str(REPO_DIR),"checkout","--detach",old],check=False)
