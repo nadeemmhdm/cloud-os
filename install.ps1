@@ -10,17 +10,6 @@ $Python=$null;foreach($candidate in @("py","python")){if(Has $candidate){try{$v=
 Step "Downloading Cloud OS";if(Test-Path(Join-Path $Dir ".git")){git -C $Dir fetch origin main;git -C $Dir checkout main;git -C $Dir reset --hard origin/main}elseif(Test-Path $Dir){Fail "I007" "$Dir is not a Cloud OS checkout."}else{git clone --depth 1 $Repo $Dir}
 Step "Installing Cloud OS";& $Python -m pip install --upgrade $Dir;if($LASTEXITCODE -ne 0){Fail "I009" "Package installation failed."}
 Step "Running setup";& $Python -m cloud_os.cli setup;if($LASTEXITCODE -ne 0){Fail "I010" "Setup failed."}
-# AtStartup is used instead of AtLogOn so the cloud is online before desktop sign-in.
-# S4U deliberately avoids storing the Windows account password. Cloud OS itself remains non-elevated.
-Step "Configuring Windows boot autostart"
-$PythonExe=& $Python -c "import sys; print(sys.executable)";$HomeDir=Join-Path $env:USERPROFILE ".cloud-os";$Runner=Join-Path $Dir "start-cloud-os.ps1"
-$runnerText='$env:CLOUD_OS_HOME="'+$HomeDir+'"' + "`r`n& '"+$PythonExe+"' -m cloud_os.cli start`r`n"
-Set-Content -Path $Runner -Value $runnerText -Encoding UTF8
-$Action=New-ScheduledTaskAction -Execute "powershell.exe" -Argument ('-NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "'+$Runner+'"')
-$Trigger=New-ScheduledTaskTrigger -AtStartup
-$Principal=New-ScheduledTaskPrincipal -UserId ([System.Security.Principal.WindowsIdentity]::GetCurrent().Name) -LogonType S4U -RunLevel Limited
-$Settings=New-ScheduledTaskSettingsSet -RestartCount 10 -RestartInterval (New-TimeSpan -Minutes 1) -StartWhenAvailable -ExecutionTimeLimit ([TimeSpan]::Zero)
-Register-ScheduledTask -TaskName "CloudOs" -Action $Action -Trigger $Trigger -Principal $Principal -Settings $Settings -Description "Cloud OS boot service - starts web server, SSH and configured Cloudflare connector" -Force|Out-Null
-Start-ScheduledTask -TaskName "CloudOs";Write-Host "[OK] Cloud OS will start automatically at Windows boot." -ForegroundColor Green
+Step "Configuring boot-time autostart";& $Python -m cloud_os.cli autostart;if($LASTEXITCODE -ne 0){Fail "I011" "Could not configure Windows boot autostart." "Run PowerShell as Administrator, then: cloud-os autostart"}
 Step "Verifying installation";& $Python -m cloud_os.cli doctor
-Write-Host "[SUCCESS] Cloud OS installation completed." -ForegroundColor Green
+Write-Host "[SUCCESS] Cloud OS installation completed. Cloud OS and configured integrations start automatically at Windows boot." -ForegroundColor Green
