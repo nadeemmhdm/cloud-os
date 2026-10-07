@@ -145,4 +145,8 @@ def shared_download(token:str,request:Request,path:str=''):
 @app.get('/',response_class=HTMLResponse)
 def dashboard():
  page=Path(__file__).with_name('dashboard.html').read_text(encoding='utf-8')
- return page.replace('</body>','<script src="/share-ui.js"></script></body>')
+ # The mobile stylesheet intentionally forces the authenticated app into a
+ # two-column shell. Keep the generic hidden state stronger so the login and
+ # app can never be visible at the same time on phones/tablets.
+ mobile_visibility_fix='<style id="mobile-auth-visibility">#app.hidden{display:none!important}#login.hidden{display:none!important}</style>'
+ return page.replace('</head>',mobile_visibility_fix+'</head>').replace('</body>','<script src="/share-ui.js"></script></body>')
