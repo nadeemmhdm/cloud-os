@@ -41,7 +41,7 @@ def system_details(req:Request):
    ip=inf[4][0]
    if ip and not ip.startswith('127.') and ip not in ips:ips.append(ip)
  except OSError:pass
- return {'system_name':platform.node() or 'Unknown','ip_addresses':ips,'os':platform.system(),'os_release':platform.release(),'os_version':platform.version(),'architecture':platform.machine(),'processor':platform.processor() or 'Unknown','cpu_physical_cores':psutil.cpu_count(logical=False),'cpu_logical_cores':psutil.cpu_count(logical=True),'ram_total':vm.total,'ram_available':vm.available,'graphics':gpu,'python':platform.python_version(),'cloud_os_version':__version__,'drives':drives}
+ return {'system_name':platform.node() or 'Unknown',"ip_addresses":ips,'os':platform.system(),'os_release':platform.release(),'os_version':platform.version(),'architecture':platform.machine(),'processor':platform.processor() or 'Unknown','cpu_physical_cores':psutil.cpu_count(logical=False),'cpu_logical_cores':psutil.cpu_count(logical=True),'ram_total':vm.total,'ram_available':vm.available,'graphics':gpu,'python':platform.python_version(),'cloud_os_version':__version__,'drives':drives}
 @app.get('/cloud-os-logo.svg')
 def cloud_os_logo():return FileResponse(Path(__file__).with_name('cloud-os-logo.svg'),media_type='image/svg+xml')
 @app.get('/share-ui.js')
