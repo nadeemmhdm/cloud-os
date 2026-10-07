@@ -1,3 +1,4 @@
+import os
 from pathlib import Path
 from .config import load
 
@@ -26,5 +27,22 @@ def safe_upload_path(relative_dir, filename):
 
 def list_items(relative=""):
     p=safe_path(relative)
-    if not p.is_dir(): raise FileNotFoundError(relative)
-    return [{"name":x.name,"directory":x.is_dir(),"size":0 if x.is_dir() else x.stat().st_size} for x in sorted(p.iterdir(),key=lambda x:(not x.is_dir(),x.name.lower()))]
+    if not p.is_dir():
+        raise FileNotFoundError(relative)
+
+    # os.scandir caches directory-entry metadata on the common platforms and
+    # avoids repeatedly calling Path.is_dir()/stat() while sorting/rendering.
+    # This matters a lot for folders with hundreds or thousands of entries.
+    items=[]
+    with os.scandir(p) as entries:
+        for entry in entries:
+            try:
+                is_dir=entry.is_dir(follow_symlinks=False)
+                size=0 if is_dir else entry.stat(follow_symlinks=False).st_size
+            except OSError:
+                # A file can disappear or become inaccessible while a directory
+                # is being listed. Skip it instead of stalling/failing the page.
+                continue
+            items.append({"name":entry.name,"directory":is_dir,"size":size})
+    items.sort(key=lambda x:(not x["directory"],x["name"].lower()))
+    return items
