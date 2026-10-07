@@ -145,8 +145,11 @@ def shared_download(token:str,request:Request,path:str=''):
 @app.get('/',response_class=HTMLResponse)
 def dashboard():
  page=Path(__file__).with_name('dashboard.html').read_text(encoding='utf-8')
- # The mobile stylesheet intentionally forces the authenticated app into a
- # two-column shell. Keep the generic hidden state stronger so the login and
- # app can never be visible at the same time on phones/tablets.
- mobile_visibility_fix='<style id="mobile-auth-visibility">#app.hidden{display:none!important}#login.hidden{display:none!important}</style>'
+ # dashboard.html still contains an older compact mobile-sidebar rule. Override it
+ # at response time so mobile uses the full viewport and the hamburger menu.
+ mobile_visibility_fix='''<style id="mobile-layout-fix">
+#app.hidden{display:none!important}#login.hidden{display:none!important}
+@media(max-width:760px){html,body{width:100%;min-height:100%;overflow-x:hidden}.app,.app.sideHidden{display:block!important;width:100%!important;min-width:0!important;min-height:100dvh!important;padding:0!important;overflow-x:hidden!important}.side,.app.sideHidden .side{display:none!important}.main,.app.sideHidden .main{display:block!important;width:100%!important;max-width:none!important;min-width:0!important;margin:0!important;padding:18px 14px calc(76px + env(safe-area-inset-bottom))!important;overflow-x:hidden!important}.hamb{display:block!important}.mobile{display:none!important;position:fixed!important;top:72px!important;right:14px!important;left:auto!important;bottom:auto!important;width:min(280px,calc(100% - 28px))!important;z-index:60!important;border-radius:19px!important;padding:8px!important;flex-direction:column!important}.mobile.open{display:flex!important}.grid{grid-template-columns:minmax(0,1fr)!important}.card,.wide,.row{min-width:0!important;max-width:100%!important}.chatfab{right:14px!important;bottom:calc(14px + env(safe-area-inset-bottom))!important}.chatbox{left:14px!important;right:14px!important;width:auto!important;bottom:calc(78px + env(safe-area-inset-bottom))!important}.modalShade{padding:14px!important}}
+@media(max-width:430px){.main,.app.sideHidden .main{padding:14px 10px calc(70px + env(safe-area-inset-bottom))!important}.top h1{font-size:28px}.chatbox{left:10px!important;right:10px!important}.modalShade{padding:10px!important}}
+</style>'''
  return page.replace('</head>',mobile_visibility_fix+'</head>').replace('</body>','<script src="/share-ui.js"></script></body>')
