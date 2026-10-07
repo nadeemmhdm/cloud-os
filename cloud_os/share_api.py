@@ -34,10 +34,14 @@ def change_role(username:str,body:RoleChange,req:Request):
  except ValueError as exc:fail(400,'USER-001',str(exc))
  revoke_user(username);record('user.role.change',f"{actor['username']}:{username}:{body.role}");return {'ok':True,'user':user,'sessions_revoked':True}
 @router.get('/readonly/backups')
-def readonly_backups(req:Request):require(req,'backups.read');return list_backups()
+def readonly_backups(req:Request):
+ user=require(req,'files.read')
+ if user.get('role') not in {'viewer','owner'}:fail(403,'PERM-001')
+ return list_backups()
 @router.get('/readonly/backups/{name}')
 def readonly_backup_info(name:str,req:Request):
- require(req,'backups.read')
+ user=require(req,'files.read')
+ if user.get('role') not in {'viewer','owner'}:fail(403,'PERM-001')
  try:return backup_info(name)
  except FileNotFoundError as exc:fail(404,'BACKUP-001',str(exc))
  except (ValueError,OSError) as exc:fail(400,'BACKUP-001',str(exc))
