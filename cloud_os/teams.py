@@ -4,7 +4,7 @@ from datetime import datetime,timezone
 from .config import APP_DIR
 from .auth import hash_password,verify
 DB=APP_DIR/"access.json";NAME_RE=re.compile(r"^[A-Za-z0-9_.-]{1,64}$")
-DEFAULT_ROLES={"owner":["*"],"admin":["files.read","files.write","terminal","backups","backups.read","backups.write","network","audit","teams.manage","settings"],"operator":["files.read","files.write","terminal","backups","backups.read","backups.write","network"],"member":["files.read","files.write"],"viewer":["files.read","backups.read"]}
+DEFAULT_ROLES={"owner":["*"],"admin":["files.read","files.write","terminal","backups","backups.read","backups.write","network","audit","teams.manage","settings"],"operator":["files.read","files.write","terminal","backups","backups.read","backups.write","network"],"member":["files.read","files.write"],"viewer":["files.read"]}
 ASSIGNABLE_ROLES={"operator","member","viewer"}
 def _load():
  APP_DIR.mkdir(parents=True,exist_ok=True)
