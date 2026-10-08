@@ -6,12 +6,14 @@ from .config import APP_DIR
 
 STATE_FILE=APP_DIR/"resource-manager.json"
 _LOCK=threading.RLock();_STOP=threading.Event();_THREAD=None
+try:_BASE_AFFINITY=psutil.Process().cpu_affinity()
+except (psutil.Error,AttributeError):_BASE_AFFINITY=[]
 PROFILES={
  "eco":{"cpu_fraction":0.25,"memory_soft_mb":1536,"workers":1,"priority":"low"},
  "balanced":{"cpu_fraction":0.50,"memory_soft_mb":2048,"workers":2,"priority":"below-normal"},
  "performance":{"cpu_fraction":0.75,"memory_soft_mb":3072,"workers":4,"priority":"normal"},
 }
-CRITICAL_WINDOWS={"system","system idle process","registry","memory compression","smss.exe","csrss.exe","wininit.exe","winlogon.exe","services.exe","lsass.exe","svchost.exe","dwm.exe","fontdrvhost.exe"}
+CRITICAL_WINDOWS={"system","system idle process","registry","memory compression","smss.exe","csrss.exe","wininit.exe","winlogon.exe","services.exe","lsass.exe","svchost.exe","dwm.exe","fontdrvhost.exe","explorer.exe"}
 CRITICAL_LINUX={"systemd","init","kthreadd","kworker","dbus-daemon","networkmanager","systemd-journald","systemd-logind","sshd"}
 
 def _read():
@@ -83,7 +85,7 @@ def _set_io_priority(p:psutil.Process,level:str):
 
 def _affinity_for_fraction(p:psutil.Process,fraction:float):
  try:
-  available=p.cpu_affinity();count=max(1,round(len(available)*max(.1,min(1.0,fraction))));p.cpu_affinity(available[:count]);return count
+  available=list(_BASE_AFFINITY) or p.cpu_affinity();count=max(1,round(len(available)*max(.1,min(1.0,fraction))));p.cpu_affinity(available[:count]);return count
  except (psutil.Error,AttributeError,ValueError):return None
 
 def apply_profile(profile:str|None=None):
@@ -125,13 +127,13 @@ def process_action(pid:int,action:str):
  except (psutil.NoSuchProcess,ValueError):raise FileNotFoundError(pid)
  cls=classify_process(p)
  if cls!='user_app':raise PermissionError(f'process class {cls} is protected')
- action=action.lower().strip()
+ action=action.lower().strip();name=p.name()
  if action=='lower_priority':_set_priority(p,'low');_set_io_priority(p,'low')
  elif action=='suspend':p.suspend()
  elif action=='resume':p.resume()
  elif action=='terminate':p.terminate()
  else:raise ValueError('action must be lower_priority, suspend, resume, or terminate')
- return {"pid":pid,"name":p.name() if p.is_running() else '',"action":action,"class":cls,"ok":True}
+ return {"pid":pid,"name":name,"action":action,"class":cls,"ok":True}
 
 def _enforce_blocklist():
  blocked=set(settings()['auto_block'])
@@ -148,7 +150,7 @@ def guard_once():
  if cfg['adaptive']:
   if pressure['high']:
    p=psutil.Process()
-   try:_set_priority(p,'low')
+   try:_set_priority(p,'low');_set_io_priority(p,'low');_affinity_for_fraction(p,min(PROFILES[cfg['profile']]['cpu_fraction'],.25))
    except psutil.Error:pass
    result['adaptive_action']='throttled'
   else:
