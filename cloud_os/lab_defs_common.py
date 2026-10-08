@@ -4,6 +4,10 @@ MODULES=[
  {"id":"M3","name":"Network Security","description":"Virtual networks, security groups, ACLs, exposure analysis, and synthetic network monitoring.","difficulty":"Intermediate"},
  {"id":"M4","name":"Compute Security","description":"Instance hardening, ports, patching, metadata protection, containers, and compute baselines.","difficulty":"Intermediate"},
  {"id":"M5","name":"Storage & Data Security","description":"Object storage, public access, permissions, encryption, classification, snapshots, and recovery.","difficulty":"Intermediate"},
+ {"id":"M6","name":"Microsoft Azure Security","description":"Local Azure Security Lab Simulator covering Entra ID, Azure RBAC, networking, storage, compute, and monitoring.","difficulty":"Intermediate"},
+ {"id":"M7","name":"Microsoft Sentinel & SIEM","description":"Local Sentinel SIEM Simulator covering ingestion, connectors, detections, alerts, and incident investigation.","difficulty":"Intermediate"},
+ {"id":"M8","name":"KQL for Security Analysis","description":"Offline KQL Training Engine for filtering, sorting, aggregation, threat hunting, and log investigation.","difficulty":"Intermediate"},
+ {"id":"M9","name":"Microsoft Defender XDR","description":"Local Defender XDR Simulator covering endpoint telemetry, alerts, process trees, timelines, and incidents.","difficulty":"Intermediate"},
 ]
 AWS_MAP={
  "M1":["Virtual Compute Instance → EC2 Instance","Object Bucket → S3 Bucket","Virtual Network → VPC"],
@@ -11,6 +15,10 @@ AWS_MAP={
  "M3":["Virtual Network → VPC","Virtual Security Group → EC2 Security Group","Subnet ACL → Network ACL"],
  "M4":["Virtual Compute Instance → EC2 Instance","Metadata Simulator → EC2 Instance Metadata","Sandbox Container → ECS/EC2 container workload"],
  "M5":["Object Bucket → S3 Bucket","Snapshot → EBS/S3 recovery point","Lab Encryption Key → KMS concept"],
+ "M6":["Azure Security Lab Simulator","Microsoft Entra ID","Azure RBAC","Azure VNet / NSG","Azure Storage","Azure VM security"],
+ "M7":["Sentinel SIEM Simulator","Data connectors","Analytics rules","Alerts","Incidents"],
+ "M8":["KQL Training Engine","SigninLogs","AzureActivity","SecurityAlert","DeviceEvents"],
+ "M9":["Defender XDR Simulator","Devices","Alerts","Incidents","Process trees","Attack timeline"],
 }
 def cmd(command,output,mark=None):return {"cmd":command,"output":output,"mark":mark}
 def lab(module,num,title,topic,objective,scenario,commands,difficulty="Beginner"):
