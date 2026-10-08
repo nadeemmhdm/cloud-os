@@ -46,6 +46,22 @@ def test_every_module_1_to_6_core_lab_has_resources_and_all_commands_run(monkeyp
   assert verified['score']==100, definition['id']
   labs.exit_lab(sid,'alice')
 
+def test_every_lab_definition_has_resources_and_runnable_commands(monkeypatch,tmp_path):
+ _sandbox(monkeypatch,tmp_path)
+ assert not labs._DEFINITION_ERRORS
+ for definition in labs.LABS:
+  s=labs.start_lab(definition['id'],'qa-user');sid=s['session_id']
+  assert s['resources_ready'] is True, definition['id']
+  assert s['resource_count']>0, definition['id']
+  for command in definition['commands']:
+   result=labs.run_command(sid,'qa-user',command['cmd'])
+   assert result['output'], (definition['id'],command['cmd'])
+   assert 'unsupported simulator command' not in result['output'].lower(), (definition['id'],command['cmd'])
+  verified=labs.verify_lab(sid,'qa-user')
+  assert verified['passed'] is True, definition['id']
+  assert verified['score']==100, definition['id']
+  labs.exit_lab(sid,'qa-user')
+
 def test_kql_comparison_operators_are_valid_simulator_syntax(monkeypatch,tmp_path):
  _sandbox(monkeypatch,tmp_path);s=labs.start_lab('M8-L2','alice')
  result=labs.run_command(s['session_id'],'alice','SigninLogs | where TimeGenerated > ago(1h)')
