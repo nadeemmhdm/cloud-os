@@ -21,4 +21,11 @@ jobs:
       - run: python -m pip install --upgrade pip
       - run: python -m pip install -e ".[test]"
       - run: python -m compileall -q cloud_os
+      - name: Validate dashboard JavaScript
+        run: |
+          node --check cloud_os/share-ui.js
+          node --check cloud_os/share-ui-core.js
+          node --check cloud_os/files-ui.js
+          node --check cloud_os/terminal-ui.js
+          node --check cloud_os/labs-ui.js
       - run: pytest -q
