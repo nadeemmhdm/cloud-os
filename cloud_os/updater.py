@@ -43,7 +43,7 @@ def check_now():
    d={"current_version":__version__,"current_commit":_commit(),"latest_version":latest or None,"tag":tag or None,"available":available,"checked_at":checked,"release_name":str(release.get("name") or tag or "Cloud OS update"),"announcement":body[:1200] if available else "Cloud OS is up to date.","release_url":str(release.get("html_url") or "")}
   except urllib.error.HTTPError as e:d={"current_version":__version__,"current_commit":_commit(),"available":False,"checked_at":checked,"error":f"GitHub returned HTTP {e.code}"}
   except (urllib.error.URLError,TimeoutError,OSError,ValueError):d={"current_version":__version__,"current_commit":_commit(),"available":False,"checked_at":checked,"error":"Update service is temporarily unavailable."}
-  for k in ("state","finished_at","rollback","rollback_error","previous_commit","force","channel"):
+  for k in ("state","finished_at","rollback","rollback_error","previous_commit","force","channel","target","queued_at","started_at","worker_pid"):
    if k in previous:d[k]=previous[k]
   _save(d);return d
 def _worker():
