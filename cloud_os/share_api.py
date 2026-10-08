@@ -63,7 +63,8 @@ def install_update(body:UpdateInstall,req:Request):
  try:
   if not body.force:check_now()
   result=start_install(force=body.force)
- except RuntimeError as exc:raise HTTPException(409,detail={'code':'UPDATE-001','message':str(exc)})
+ except RuntimeError as exc:fail(409,'UPDATE-001',str(exc))
+ except OSError as exc:fail(500,'UPDATE-001',f'Could not launch update worker: {exc}')
  record('update.install',f"{user['username']}:force={body.force}");return {'ok':True,'message':'Background update started. Cloud OS will restart automatically after success or rollback.','status':result}
 @router.get('/update/progress')
 def update_progress(req:Request):require(req);return control_status()
