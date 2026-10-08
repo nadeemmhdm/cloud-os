@@ -4,6 +4,7 @@ import urllib.request
 from .ssh_gateway import start_background
 from .cloudflare import start_connector
 from .config import load
+from .resource_manager import start_guard
 
 def start_cloudflare():
     return start_connector()
@@ -25,6 +26,8 @@ def prepare_integrations():
     if _cloud_os_already_running():
         print("[OK] Cloud OS is already running; duplicate start skipped.")
         raise SystemExit(0)
+    # Resource Guard keeps Cloud OS responsive without starving the host OS.
+    resource_thread=start_guard()
     # Cloud OS owns this host-native shell SSH gateway. Host sshd is never started.
     ssh_thread=start_background()
-    return {"cloudflare":start_cloudflare(),"ssh":ssh_thread}
+    return {"cloudflare":start_cloudflare(),"ssh":ssh_thread,"resource_guard":resource_thread}
