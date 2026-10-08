@@ -6,6 +6,7 @@ from .api import require,fail
 from .audit import record
 from .auth import revoke_user
 from .backup import list_backups,backup_info
+from .files import list_items
 from .shares import create,revoke
 from .teams import set_role
 from .updater import check_now
@@ -21,12 +22,22 @@ class RoleChange(BaseModel):role:str
 class LabCommand(BaseModel):command:str
 class LabToggle(BaseModel):enabled:bool
 class LabProgressReset(BaseModel):username:str
+@router.get('/ui/files.js')
+def files_ui():return FileResponse(Path(__file__).with_name('files-ui.js'),media_type='application/javascript')
 @router.get('/ui/share-core.js')
 def share_core_ui():return FileResponse(Path(__file__).with_name('share-ui-core.js'),media_type='application/javascript')
 @router.get('/ui/terminal.js')
 def terminal_ui():return FileResponse(Path(__file__).with_name('terminal-ui.js'),media_type='application/javascript')
 @router.get('/ui/labs.js')
 def labs_ui():return FileResponse(Path(__file__).with_name('labs-ui.js'),media_type='application/javascript')
+@router.get('/files/page')
+def files_page(req:Request,path:str='',offset:int=0,limit:int=120):
+ require(req,'files.read');offset=max(0,int(offset));limit=max(1,min(int(limit),250))
+ try:items=list_items(path)
+ except FileNotFoundError as exc:fail(404,'FILE-001',str(exc))
+ except ValueError as exc:fail(400,'FILE-002',str(exc))
+ total=len(items);end=min(total,offset+limit)
+ return {'items':items[offset:end],'total':total,'offset':offset,'limit':limit,'has_more':end<total}
 @router.post('/shares')
 def new_share(body:ShareCreate,req:Request):
  user=require(req,'files.read')
