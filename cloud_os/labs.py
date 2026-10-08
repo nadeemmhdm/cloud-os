@@ -3,7 +3,7 @@ import json,os,re,shutil,threading,time,uuid
 from datetime import datetime,timezone
 from pathlib import Path
 from .config import APP_DIR
-from .lab_defs_common import MODULES
+from .lab_defs_common import MODULES,resources_for
 from .lab_defs_m1 import LABS as M1
 from .lab_defs_m2 import LABS as M2
 from .lab_defs_m3 import LABS as M3
@@ -60,6 +60,24 @@ def _read_state(sid):
 def _write_state(s):_save(_state_path(s['session_id']),s)
 def _owned(s,u):
  if s.get('username','').lower()!=u.lower():raise PermissionError('session belongs to another user')
+def _lab_resources(lab):return list(lab.get('resources') or resources_for(lab.get('module',''),lab.get('id','LAB')))
+def _norm(c):return ' '.join(str(c).strip().split()).lower()
+def _definition_errors():
+ errors=[];ids=set()
+ for lab in LABS:
+  lid=lab.get('id','')
+  if not lid or lid in ids:errors.append(f'duplicate or missing lab id: {lid}')
+  ids.add(lid)
+  commands=lab.get('commands') or [];norms=[_norm(x.get('cmd','')) for x in commands]
+  if not commands or any(not x for x in norms):errors.append(f'{lid}: missing practical commands')
+  if len(norms)!=len(set(norms)):errors.append(f'{lid}: duplicate practical command')
+  marks={x.get('mark') for x in commands if x.get('mark')}
+  missing=[t.get('required') for t in lab.get('tasks',[]) if t.get('required') not in marks]
+  if missing:errors.append(f'{lid}: task marks without command: {missing}')
+  if not _lab_resources(lab):errors.append(f'{lid}: no lab resources')
+ return errors
+_DEFINITION_ERRORS=_definition_errors()
+if _DEFINITION_ERRORS:raise RuntimeError('Invalid lab definitions: '+'; '.join(_DEFINITION_ERRORS[:8]))
 def active_sessions(username):
  _ensure();out={}
  for p in RUNTIME_HOME.iterdir():
@@ -70,10 +88,14 @@ def active_sessions(username):
   except Exception:pass
  return out
 def session_view(s,commands=False):
- d={k:s.get(k) for k in ('session_id','lab_id','status','started_at','updated_at','score')};d['marks']=list(s.get('marks',[]));d['lab']=LAB_BY_ID[s['lab_id']]
- d['module']=d['lab'].get('module');d['resources_ready']=True;d['terminal_ready']=True;d['verification_ready']=True
- if commands:d['available_commands']=[c['cmd'] for c in d['lab']['commands']]
+ lab=LAB_BY_ID[s['lab_id']];resources=_lab_resources(lab);d={k:s.get(k) for k in ('session_id','lab_id','status','started_at','updated_at','score')};d['marks']=list(s.get('marks',[]));d['lab']={**lab,'resources':resources};d['module']=lab.get('module');d['resources_ready']=bool(resources);d['resource_count']=len(resources);d['terminal_ready']=True;d['verification_ready']=True
+ if commands:d['available_commands']=[c['cmd'] for c in lab['commands']]
  return d
+def _provision_resources(root,lab):
+ resources=_lab_resources(lab);manifest={"lab_id":lab['id'],"module":lab.get('module'),"title":lab.get('title'),"synthetic":True,"offline":True,"created_at":_now(),"seed":f"{lab['id']}-default","resource_count":len(resources),"resources":resources};_save(root/'resources'/'manifest.json',manifest);_save(root/'resources'/'catalog.json',resources)
+ for i,res in enumerate(resources,1):
+  safe=re.sub(r'[^A-Za-z0-9._-]+','-',str(res.get('id') or f'resource-{i}')).strip('-') or f'resource-{i}';_save(root/'resources'/f'{safe}.json',res)
+ return resources
 def start_lab(lab_id,username):
  _ensure()
  if lab_id not in LAB_BY_ID:raise KeyError(lab_id)
@@ -84,43 +106,53 @@ def start_lab(lab_id,username):
   except Exception:pass
  sid=uuid.uuid4().hex;r=_root(sid)
  for x in ('filesystem','logs','config','state','output','resources'):(r/x).mkdir(parents=True,exist_ok=True)
- (r/'filesystem'/'README.txt').write_text('Cloud OS LAB SANDBOX\nSynthetic training data only.\n',encoding='utf-8');(r/'logs'/'security.log').write_text('2026-10-07T19:30:12Z AUTH_FAILURE user=developer source=203.0.113.45\n2026-10-07T19:31:02Z PORT_SCAN source=198.51.100.77 target=web-01\n',encoding='utf-8')
- lab=LAB_BY_ID[lab_id]
- manifest={"lab_id":lab_id,"module":lab.get('module'),"title":lab.get('title'),"synthetic":True,"offline":True,"created_at":_now(),"seed":f"{lab_id}-default"}
- _save(r/'resources'/'manifest.json',manifest)
- s={"session_id":sid,"lab_id":lab_id,"username":username,"status":"running","started_at":_now(),"updated_at":_now(),"marks":[],"history":[],"times":[],"score":0,"resources_ready":True};_write_state(s);p=user_progress(username).get(lab_id,{});_touch(username,lab_id,status='In Progress',attempts=int(p.get('attempts',0))+1,last_opened=_now());return session_view(s,True)
+ (r/'filesystem'/'README.txt').write_text('Cloud OS LAB SANDBOX\nSynthetic training data only.\nUse resources to inspect provisioned lab assets.\n',encoding='utf-8');(r/'logs'/'security.log').write_text('2026-10-07T19:30:12Z AUTH_FAILURE user=developer source=203.0.113.45\n2026-10-07T19:31:02Z PORT_SCAN source=198.51.100.77 target=web-01\n',encoding='utf-8')
+ lab=LAB_BY_ID[lab_id];resources=_provision_resources(r,lab)
+ s={"session_id":sid,"lab_id":lab_id,"username":username,"status":"running","started_at":_now(),"updated_at":_now(),"marks":[],"history":[],"times":[],"score":0,"resources_ready":bool(resources),"resource_count":len(resources)};_write_state(s);p=user_progress(username).get(lab_id,{});_touch(username,lab_id,status='In Progress',attempts=int(p.get('attempts',0))+1,last_opened=_now());return session_view(s,True)
 def get_session(sid,username):s=_read_state(sid);_owned(s,username);return session_view(s,True)
-def _norm(c):return ' '.join(c.strip().split()).lower()
 def _unsafe(c):
  if not isinstance(c,str) or not c.strip() or len(c)>_MAX_COMMAND:return True
- low=c.lower();blocked=['..','&&','||',';','`','$(', '>', '<','file://','http://','https://']
+ low=c.lower();blocked=['..','&&','||',';','`','$(', 'file://','http://','https://']
  return any(x in low for x in blocked) or c.strip().startswith(('/','\\')) or bool(re.match(r'^[A-Za-z]:[\\/]',c.strip()))
+def _verification_for(s,lab):
+ marks=set(s.get('marks',[]));res=[];earned=total=0
+ for t in lab.get('tasks',[]):
+  total+=t['points'];ok=t['required'] in marks;earned+=t['points'] if ok else 0;res.append({"id":t['id'],"title":t['title'],"status":"PASS" if ok else "FAIL","points":t['points'] if ok else 0,"hint":None if ok else t['hint'],"explanation":"Requirement satisfied in current sandbox state." if ok else t['failure']})
+ score=round(100*earned/max(1,total));return {"passed":all(x['status']=='PASS' for x in res),"score":score,"completed":sum(x['status']=='PASS' for x in res),"total":len(res),"results":res}
+def _resource_output(lab):return '\n'.join(f"{r['id']} | {r.get('type','resource')} | {r.get('name','')} | {r.get('state','ready')}" for r in _lab_resources(lab))
 def run_command(sid,username,command):
- if _unsafe(command):raise PermissionError('unsafe command blocked')
  with _LOCK:
   s=_read_state(sid);_owned(s,username)
   if s.get('status')!='running':raise RuntimeError('lab is not running')
+  lab=LAB_BY_ID[s['lab_id']];n=_norm(command);defined=next((x for x in lab['commands'] if _norm(x['cmd'])==n),None)
+  # Defined lab commands are trusted simulator syntax and are never passed to the host shell.
+  # This intentionally permits KQL comparison operators such as > and <.
+  if defined is None and _unsafe(command):raise PermissionError('unsafe command blocked')
   now=time.time();times=[x for x in s.get('times',[]) if now-float(x)<=_RATE_WINDOW]
   if len(times)>=_RATE_LIMIT:raise RuntimeError('lab command rate limit exceeded')
-  times.append(now);s['times']=times[-_RATE_LIMIT:];lab=LAB_BY_ID[s['lab_id']];n=_norm(command)
-  if n in {'help','?'}:out='LAB SANDBOX\nAllowed commands:\n'+'\n'.join('  '+c['cmd'] for c in lab['commands'])+'\n  pwd\n  ls\n  cat README.txt\n  cat security.log\n  verify\n  clear\n  exit'
+  times.append(now);s['times']=times[-_RATE_LIMIT:]
+  if n in {'help','?'}:out='LAB SANDBOX\nBuilt-ins:\n  help\n  resources\n  resource show <id>\n  tasks\n  status\n  history\n  pwd\n  ls\n  cat README.txt\n  cat security.log\n  cat resources/catalog.json\n  verify\n  clear\n  exit\n\nPractical commands:\n'+'\n'.join('  '+c['cmd'] for c in lab['commands'])
   elif n=='pwd':out='/lab-sandbox'
   elif n=='ls':out='README.txt  security.log  state/  resources/'
-  elif n=='cat readme.txt':out='Cloud OS LAB SANDBOX\nSynthetic training data only.'
+  elif n=='cat readme.txt':out='Cloud OS LAB SANDBOX\nSynthetic training data only.\nUse resources to inspect provisioned lab assets.'
   elif n=='cat security.log':out='2026-10-07T19:30:12Z AUTH_FAILURE user=developer source=203.0.113.45\n2026-10-07T19:31:02Z PORT_SCAN source=198.51.100.77 target=web-01'
-  else:
-   m=next((x for x in lab['commands'] if _norm(x['cmd'])==n),None)
-   if not m:out="LAB-1005 Unsafe or unsupported command blocked. Run 'help'."
-   else:
-    out=m['output']
-    if m.get('mark') and m['mark'] not in s['marks']:s['marks'].append(m['mark'])
-  out=out[:12000];s['history']=(s.get('history',[])+[{"at":_now(),"command":command[:_MAX_COMMAND],"output":out}])[-100:];s['updated_at']=_now();_write_state(s);return {"output":out,"status":s['status'],"marks":s['marks']}
+  elif n=='cat resources/catalog.json':out=json.dumps(_lab_resources(lab),indent=2)
+  elif n=='resources':out=_resource_output(lab)
+  elif n.startswith('resource show '):
+   rid=command.strip().split(None,2)[2].strip();res=next((x for x in _lab_resources(lab) if str(x.get('id','')).lower()==rid.lower()),None);out=json.dumps(res,indent=2) if res else f"Resource not found: {rid}. Run 'resources'."
+  elif n=='tasks':out='\n'.join(f"[{('x' if t['required'] in s.get('marks',[]) else ' ')}] {t['title']} ({t['points']} pts)" for t in lab.get('tasks',[])) or 'No scored tasks for this lab.'
+  elif n=='status':out=f"Lab {lab['id']} | {s['status']} | score={s.get('score',0)}% | completed-marks={len(s.get('marks',[]))}/{len(lab.get('tasks',[]))} | resources={len(_lab_resources(lab))}"
+  elif n=='history':out='\n'.join(x.get('command','') for x in s.get('history',[])[-30:]) or 'No commands yet.'
+  elif n=='verify':
+   vr=_verification_for(s,lab);s['score']=vr['score'];out=f"Verification: {'PASS' if vr['passed'] else 'FAIL'} | {vr['score']}% | {vr['completed']}/{vr['total']} tasks passed"
+  elif defined:
+   out=defined['output']
+   if defined.get('mark') and defined['mark'] not in s['marks']:s['marks'].append(defined['mark'])
+  else:out="LAB-1005 Unsupported simulator command. Run 'help' for commands available in this lab."
+  out=str(out)[:12000];s['history']=(s.get('history',[])+[{"at":_now(),"command":command[:_MAX_COMMAND],"output":out}])[-100:];s['updated_at']=_now();_write_state(s);return {"output":out,"status":s['status'],"marks":s['marks'],"score":s.get('score',0)}
 def verify_lab(sid,username):
  with _LOCK:
-  s=_read_state(sid);_owned(s,username);lab=LAB_BY_ID[s['lab_id']];marks=set(s.get('marks',[]));res=[];earned=total=0
-  for t in lab['tasks']:
-   total+=t['points'];ok=t['required'] in marks;earned+=t['points'] if ok else 0;res.append({"id":t['id'],"title":t['title'],"status":"PASS" if ok else "FAIL","points":t['points'] if ok else 0,"hint":None if ok else t['hint'],"explanation":"Requirement satisfied in current sandbox state." if ok else t['failure']})
-  score=round(100*earned/max(1,total));s['score']=score;s['updated_at']=_now();_write_state(s);p=user_progress(username).get(s['lab_id'],{});_touch(username,s['lab_id'],best_score=max(int(p.get('best_score',0)),score),last_opened=_now());return {"passed":all(x['status']=='PASS' for x in res),"score":score,"completed":sum(x['status']=='PASS' for x in res),"total":len(res),"results":res}
+  s=_read_state(sid);_owned(s,username);lab=LAB_BY_ID[s['lab_id']];result=_verification_for(s,lab);s['score']=result['score'];s['updated_at']=_now();_write_state(s);p=user_progress(username).get(s['lab_id'],{});_touch(username,s['lab_id'],best_score=max(int(p.get('best_score',0)),result['score']),last_opened=_now());return result
 def pause_lab(sid,u):s=_read_state(sid);_owned(s,u);s['status']='paused';s['updated_at']=_now();_write_state(s);return session_view(s)
 def resume_lab(sid,u):s=_read_state(sid);_owned(s,u);s['status']='running';s['updated_at']=_now();_write_state(s);return session_view(s)
 def exit_lab(sid,u):s=_read_state(sid);_owned(s,u);shutil.rmtree(_root(sid),ignore_errors=True);return {"ok":True}
@@ -136,7 +168,7 @@ def catalog(username):
   core=[x for x in LABS if x['module']==m['id'] and _is_core(x['id'])];done=sum(progress.get(x['id'],{}).get('status')=='Completed' for x in core);mods.append({**m,"labs":len(core),"completed":done,"progress":round(100*done/max(1,len(core)))})
  rows=[]
  for l in LABS:
-  p=progress.get(l['id'],{});rows.append({**l,"enabled":l['id'] not in disabled,"progress":p or {"status":"Not Started","attempts":0,"best_score":0},"active_session":active.get(l['id'])})
- core=[x for x in LABS if _is_core(x['id'])];done=sum(progress.get(x['id'],{}).get('status')=='Completed' for x in core);return {"modules":mods,"labs":rows,"overall":{"completed":done,"total":len(core),"progress":round(100*done/max(1,len(core)))},"safety":"All exercises run in an isolated simulated Lab Runtime. Host OS security, users, firewall, services, packages, network, Cloud OS production data and real credentials are not modified."}
+  p=progress.get(l['id'],{});rows.append({**l,"resources":_lab_resources(l),"enabled":l['id'] not in disabled,"progress":p or {"status":"Not Started","attempts":0,"best_score":0},"active_session":active.get(l['id'])})
+ core=[x for x in LABS if _is_core(x['id'])];done=sum(progress.get(x['id'],{}).get('status')=='Completed' for x in core);return {"modules":mods,"labs":rows,"overall":{"completed":done,"total":len(core),"progress":round(100*done/max(1,len(core)))},"definitions":len(LABS),"safety":"All exercises run in an isolated simulated Lab Runtime. Host OS security, users, firewall, services, packages, network, Cloud OS production data and real credentials are not modified."}
 def admin_stats():
- a=_all_progress();done=sum(1 for u in a.values() if isinstance(u,dict) for p in u.values() if isinstance(p,dict) and p.get('status')=='Completed');return {"users":len(a),"completed_labs":done,"disabled":_settings()['disabled'],"definitions":len(LABS),"active_sessions":sum(len(active_sessions(u)) for u in a)}
+ a=_all_progress();done=sum(1 for u in a.values() if isinstance(u,dict) for p in u.values() if isinstance(p,dict) and p.get('status')=='Completed');return {"users":len(a),"completed_labs":done,"disabled":_settings()['disabled'],"definitions":len(LABS),"definition_errors":list(_DEFINITION_ERRORS),"active_sessions":sum(len(active_sessions(u)) for u in a)}
