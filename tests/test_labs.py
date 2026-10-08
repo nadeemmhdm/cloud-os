@@ -1,4 +1,5 @@
 from pathlib import Path
+import re
 import pytest
 import cloud_os.labs as labs
 
@@ -13,6 +14,7 @@ def test_catalog_has_modules_1_to_9_practical_exercises(monkeypatch,tmp_path):
  assert all(m['labs']==6 for m in d['modules'][:8])
  assert d['modules'][8]['labs']==7
  assert any(x['id']=='M69-FINAL' for x in d['labs'])
+ assert all(x.get('resources') for x in d['labs'])
 
 def test_lab_state_changes_and_verifies(monkeypatch,tmp_path):
  _sandbox(monkeypatch,tmp_path);s=labs.start_lab('M3-L4','alice');sid=s['session_id']
@@ -22,7 +24,40 @@ def test_lab_state_changes_and_verifies(monkeypatch,tmp_path):
 def test_new_microsoft_labs_are_registered_and_runnable(monkeypatch,tmp_path):
  _sandbox(monkeypatch,tmp_path)
  for lab_id in ('M6-L1','M7-L1','M8-L1','M9-L1','M69-FINAL'):
-  s=labs.start_lab(lab_id,'alice');assert s['lab_id']==lab_id;assert s['resources_ready'] is True;assert s['terminal_ready'] is True;assert s['verification_ready'] is True;labs.exit_lab(s['session_id'],'alice')
+  s=labs.start_lab(lab_id,'alice');assert s['lab_id']==lab_id;assert s['resources_ready'] is True;assert s['resource_count']>0;assert s['terminal_ready'] is True;assert s['verification_ready'] is True;labs.exit_lab(s['session_id'],'alice')
+
+def test_every_module_1_to_6_core_lab_has_resources_and_all_commands_run(monkeypatch,tmp_path):
+ _sandbox(monkeypatch,tmp_path)
+ core=[x for x in labs.LABS if re.fullmatch(r'M[1-6]-L[1-6]',x['id'])]
+ assert len(core)==36
+ for definition in core:
+  s=labs.start_lab(definition['id'],'alice');sid=s['session_id'];root=labs.RUNTIME_HOME/sid
+  assert s['resources_ready'] is True
+  assert s['resource_count']==len(definition['resources'])
+  assert (root/'resources'/'manifest.json').exists()
+  assert (root/'resources'/'catalog.json').exists()
+  resource_text=labs.run_command(sid,'alice','resources')['output']
+  assert definition['resources'][0]['id'] in resource_text
+  for command in definition['commands']:
+   result=labs.run_command(sid,'alice',command['cmd'])
+   assert 'unsupported simulator command' not in result['output'].lower()
+  verified=labs.verify_lab(sid,'alice')
+  assert verified['passed'] is True, definition['id']
+  assert verified['score']==100, definition['id']
+  labs.exit_lab(sid,'alice')
+
+def test_kql_comparison_operators_are_valid_simulator_syntax(monkeypatch,tmp_path):
+ _sandbox(monkeypatch,tmp_path);s=labs.start_lab('M8-L2','alice')
+ result=labs.run_command(s['session_id'],'alice','SigninLogs | where TimeGenerated > ago(1h)')
+ assert 'previous simulated hour' in result['output']
+
+def test_lab_terminal_builtins_work(monkeypatch,tmp_path):
+ _sandbox(monkeypatch,tmp_path);s=labs.start_lab('M6-L1','alice');sid=s['session_id']
+ assert 'Built-ins' in labs.run_command(sid,'alice','help')['output']
+ assert 'entra-tenant' in labs.run_command(sid,'alice','resources')['output']
+ assert 'identity-tenant' in labs.run_command(sid,'alice','resource show entra-tenant')['output']
+ assert 'M6-L1' in labs.run_command(sid,'alice','status')['output']
+ assert 'entra-tenant' in labs.run_command(sid,'alice','cat resources/catalog.json')['output']
 
 def test_unsafe_commands_are_blocked_without_host_execution(monkeypatch,tmp_path):
  _sandbox(monkeypatch,tmp_path);s=labs.start_lab('M1-L1','alice')
