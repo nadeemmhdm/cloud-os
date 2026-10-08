@@ -12,6 +12,7 @@ from .teams import set_role
 from .updater import check_now
 from .update_control import start_install,control_status
 from .labs import catalog as labs_catalog_data,start_lab,get_session,run_command,verify_lab,pause_lab,resume_lab,reset_lab,complete_lab,exit_lab,set_enabled,admin_stats,reset_user_progress
+from .resource_manager import status as resource_status,configure as resource_configure,process_list,process_action,add_block,remove_block
 router=APIRouter(prefix='/api')
 class ShareCreate(BaseModel):
  path:str
@@ -22,6 +23,11 @@ class RoleChange(BaseModel):role:str
 class LabCommand(BaseModel):command:str
 class LabToggle(BaseModel):enabled:bool
 class LabProgressReset(BaseModel):username:str
+class ResourceProfile(BaseModel):
+ profile:str='balanced'
+ adaptive:bool=True
+class ProcessAction(BaseModel):action:str
+class BlockName(BaseModel):name:str
 @router.get('/ui/files.js')
 def files_ui():return FileResponse(Path(__file__).with_name('files-ui.js'),media_type='application/javascript')
 @router.get('/ui/share-core.js')
@@ -79,6 +85,41 @@ def install_update(body:UpdateInstall,req:Request):
  record('update.install',f"{user['username']}:force={body.force}");return {'ok':True,'message':'Background update started. Cloud OS will restart automatically after success or rollback.','status':result}
 @router.get('/update/progress')
 def update_progress(req:Request):require(req);return control_status()
+
+@router.get('/resource/status')
+def get_resource_status(req:Request):require(req,'settings');return resource_status()
+@router.post('/resource/profile')
+def set_resource_profile(body:ResourceProfile,req:Request):
+ user=require(req,'settings')
+ try:r=resource_configure(body.profile,body.adaptive)
+ except ValueError as exc:fail(400,'SYS-001',str(exc))
+ record('resource.profile',f"{user['username']}:{body.profile}:adaptive={body.adaptive}");return r
+@router.get('/resource/processes')
+def get_resource_processes(req:Request,limit:int=120):
+ user=require(req,'settings')
+ if user.get('role')!='owner':fail(403,'PERM-001','Only the owner can inspect host process controls')
+ return {'processes':process_list(limit)}
+@router.post('/resource/process/{pid}/action')
+def act_on_resource_process(pid:int,body:ProcessAction,req:Request):
+ user=require(req,'settings')
+ if user.get('role')!='owner':fail(403,'PERM-001','Only the owner can control host processes')
+ try:r=process_action(pid,body.action)
+ except FileNotFoundError:fail(404,'SYS-001','Process no longer exists')
+ except PermissionError as exc:fail(403,'PERM-001',str(exc))
+ except (ValueError,OSError) as exc:fail(400,'SYS-001',str(exc))
+ record('resource.process.action',f"{user['username']}:pid={pid}:action={body.action}");return r
+@router.post('/resource/block')
+def add_resource_block(body:BlockName,req:Request):
+ user=require(req,'settings')
+ if user.get('role')!='owner':fail(403,'PERM-001','Only the owner can change the process block list')
+ try:r=add_block(body.name)
+ except ValueError as exc:fail(400,'SYS-001',str(exc))
+ record('resource.block.add',f"{user['username']}:{body.name[:120]}");return r
+@router.delete('/resource/block')
+def delete_resource_block(req:Request,name:str):
+ user=require(req,'settings')
+ if user.get('role')!='owner':fail(403,'PERM-001','Only the owner can change the process block list')
+ r=remove_block(name);record('resource.block.remove',f"{user['username']}:{name[:120]}");return r
 
 def _lab_user(req:Request):
  user=require(req)
