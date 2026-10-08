@@ -7,9 +7,21 @@ function Grant-CloudOsSourceAccess($Path){
  $identity=[Security.Principal.WindowsIdentity]::GetCurrent().Name
  Step "Repairing Cloud OS source permissions for $identity"
  & icacls.exe $Path /grant "$($identity):(OI)(CI)M" /T /C /Q | Out-Null
- if($LASTEXITCODE -ne 0){Fail "I008" "Could not grant the Cloud OS runtime account modify access to $Path." "Open PowerShell as Administrator and run: icacls `"$Path`" /grant `"$($identity):(OI)(CI)M`" /T /C"}
+ if($LASTEXITCODE -ne 0){
+  # Legacy installs may have been created with an ACL/owner which even an elevated
+  # administrator cannot edit directly. Take ownership first, then grant only the
+  # installing account Modify access so future non-elevated background updates work.
+  Step "Existing source ACL is locked; taking ownership of the Cloud OS checkout"
+  & takeown.exe /F $Path /R /D Y | Out-Null
+  if($LASTEXITCODE -ne 0){Fail "I008" "Could not take ownership of $Path." "Open PowerShell with Run as Administrator and rerun the installer."}
+  & icacls.exe $Path /inheritance:e /T /C /Q | Out-Null
+  & icacls.exe $Path /grant:r "$($identity):(OI)(CI)M" /T /C /Q | Out-Null
+  if($LASTEXITCODE -ne 0){Fail "I008" "Could not grant the Cloud OS runtime account modify access to $Path after taking ownership." "Open PowerShell with Run as Administrator and rerun the installer."}
+ }
+ $probe=Join-Path $Path ".cloud-os-write-test-$PID"
+ try{"ok" | Set-Content -LiteralPath $probe -Encoding ascii -Force;Remove-Item -LiteralPath $probe -Force}catch{Fail "I008" "Cloud OS source checkout is still not writable for $identity." "Open PowerShell with Run as Administrator and rerun the installer."}
 }
-Step "Checking administrator permission";$admin=([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator);if(-not $admin){Fail "I001" "Administrator permission is required."}
+Step "Checking administrator permission";$admin=([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator);if(-not $admin){Fail "I001" "Administrator permission is required." "Close this window, open PowerShell with Run as Administrator, and run the installer again."}
 if(-not(Has "winget")){Fail "I003" "Windows Package Manager is required."}
 if(-not(Has "git")){winget install --id Git.Git -e --source winget --accept-package-agreements --accept-source-agreements;$env:Path += ";$env:ProgramFiles\Git\cmd"}
 # Resolve a real python.exe path. Do not store the py launcher in $Python because
@@ -31,12 +43,12 @@ try{$site=& $Python -c "import site; print(site.getusersitepackages())" 2>$null;
 # ProgramData is not writable by a normal user by default. Cloud OS runs its scheduled
 # task as the installing account, so that account must be able to update the checkout.
 if(Test-Path $Dir){Grant-CloudOsSourceAccess $Dir}
-Step "Downloading Cloud OS";if(Test-Path(Join-Path $Dir ".git")){git -C $Dir fetch origin main;git -C $Dir checkout main;git -C $Dir reset --hard origin/main}elseif(Test-Path $Dir){Fail "I007" "$Dir is not a Cloud OS checkout."}else{git clone --depth 1 $Repo $Dir}
-Grant-CloudOsSourceAccess $Dir
-# Remove only stale Git lock left by an interrupted update. A live git process still owns
-# its lock and the later git command will fail safely instead of being forced through.
+# Remove only a stale Git index lock before changing refs. A live git process still owns
+# its lock and git will fail safely instead of being forced through.
 $indexLock=Join-Path $Dir ".git\index.lock";if(Test-Path $indexLock){$gitRunning=Get-Process git -ErrorAction SilentlyContinue;if(-not $gitRunning){Remove-Item $indexLock -Force -ErrorAction SilentlyContinue}}
-Step "Installing Cloud OS";& $Python -m pip install --upgrade $Dir;if($LASTEXITCODE -ne 0){Fail "I009" "Package installation failed."}
+Step "Downloading Cloud OS";if(Test-Path(Join-Path $Dir ".git")){git -C $Dir fetch --prune origin main;if($LASTEXITCODE -ne 0){Fail "I008" "Git fetch failed after permission repair." "Rerun this installer from an Administrator PowerShell."};git -C $Dir checkout main;if($LASTEXITCODE -ne 0){Fail "I008" "Git checkout failed after permission repair."};git -C $Dir reset --hard origin/main;if($LASTEXITCODE -ne 0){Fail "I008" "Git reset failed after permission repair."}}elseif(Test-Path $Dir){Fail "I007" "$Dir is not a Cloud OS checkout."}else{git clone --depth 1 $Repo $Dir;if($LASTEXITCODE -ne 0){Fail "I006" "Could not clone Cloud OS."}}
+Grant-CloudOsSourceAccess $Dir
+Step "Installing Cloud OS";& $Python -m pip install --upgrade --no-deps --disable-pip-version-check $Dir;if($LASTEXITCODE -ne 0){Fail "I009" "Package installation failed."}
 Step "Running setup";& $Python -m cloud_os.cli setup;if($LASTEXITCODE -ne 0){Fail "I010" "Setup failed." "Run: `"$Python`" -m cloud_os.cli setup"}
 Step "Configuring boot-time autostart";& $Python -m cloud_os.cli autostart;if($LASTEXITCODE -ne 0){Fail "I011" "Could not configure Windows boot autostart." "Run PowerShell as Administrator, then: `"$Python`" -m cloud_os.cli autostart"}
 Step "Verifying installation";& $Python -m cloud_os.cli doctor;if($LASTEXITCODE -ne 0){Fail "I012" "Cloud OS diagnostics failed." "Run: `"$Python`" -m cloud_os.cli doctor"}
