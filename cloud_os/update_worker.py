@@ -17,6 +17,19 @@ def run(args,check=True,timeout=None):
  r=subprocess.run(args,capture_output=True,text=True,check=False,timeout=timeout)
  if check and r.returncode:raise RuntimeError((r.stderr or r.stdout or "command failed").strip()[:1200])
  return r
+def _assert_repo_writable():
+ probes=[REPO_DIR,REPO_DIR/".git"]
+ for base in probes:
+  p=base/f".cloud-os-write-test-{os.getpid()}"
+  try:
+   p.write_text("ok",encoding="utf-8");p.unlink()
+  except OSError as exc:
+   try:
+    if p.exists():p.unlink()
+   except OSError:pass
+   if os.name=="nt":
+    raise RuntimeError(f"Cloud OS source checkout is not writable: {base}. Open PowerShell as Administrator and repair permissions for the signed-in account with: icacls \"{REPO_DIR}\" /grant \"$env:USERDOMAIN\\$env:USERNAME:(OI)(CI)M\" /T /C") from exc
+   raise RuntimeError(f"Cloud OS source checkout is not writable: {base}") from exc
 def verify_cloud_os():
  # Verify only Cloud OS runtime dependencies. Global environment conflicts in unrelated apps must not fail this update.
  code="import cloud_os,fastapi,uvicorn,psutil,typer,multipart,asyncssh; print(cloud_os.__version__)"
@@ -40,6 +53,7 @@ def main():
  try:
   save(state="preparing",worker_pid=os.getpid(),started_at=now(),finished_at=None,error=None,force=bool(a.force),channel=a.source,target=a.target)
   if not (REPO_DIR/".git").exists():raise RuntimeError(f"Cloud OS source checkout not found at {REPO_DIR}")
+  _assert_repo_writable()
   dirty=run(["git","-C",str(REPO_DIR),"status","--porcelain","--untracked-files=normal"],timeout=15).stdout.strip()
   if dirty:raise RuntimeError("Source checkout has local changes; refusing to overwrite them: "+dirty[:500])
   old=run(["git","-C",str(REPO_DIR),"rev-parse","HEAD"],timeout=10).stdout.strip();old_ref=run(["git","-C",str(REPO_DIR),"symbolic-ref","--quiet","--short","HEAD"],False,10).stdout.strip()
